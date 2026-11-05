@@ -45,8 +45,6 @@ erDiagram
 
     users {
         uuid id PK
-        uuid auth_user_id UK "auth.users.id"
-        text access_code_hash "被験者のみ。アクセスコードのハッシュ"
         text name
         user_roles role
         timestamptz created_at
@@ -203,8 +201,6 @@ erDiagram
 |列|型|NULL|既定値|説明|
 |---|---|---|---|---|
 |id|uuid|×|`gen_random_uuid()`|主キー|
-|auth_user_id|uuid|○||Supabase Auth のユーザー ID。一意。研究者は seed で入れる。被験者はログインのとき（`claim_participant`）に入る|
-|access_code_hash|text|○||被験者のアクセスコードのハッシュ（`pgcrypto` の `crypt()`）。研究者は `null`|
 |name|text|×||表示名。被験者は実験用の ID（例：`P01`）|
 |role|user_roles|×||`researcher` / `participant`|
 |created_at|timestamptz|×|`now()`||
@@ -375,7 +371,7 @@ erDiagram
 |design_decisions|`unique (attribute_id)`|属性と判断は 1 対 1|
 |answers|`unique (question_id)`|質問と回答は 1 対 1|
 |sessions|`unique (participant_id, order_index)`|1人の被験者の中で順番が重ならない|
-|users|`unique (auth_user_id)`|Auth のユーザーと1対1|
+|users|`unique (name) where role = 'participant'`|被験者の ID（例：`P01`）は重ならない。被験者は ID を入力して自分の行を探すため|
 
 `nodes` の兄弟の一意制約は、`parent_node_id` が `null`（ページ同士）のとき PostgreSQL では重複とみなされない。ページ同士の順番も一意にする場合は `nulls not distinct` を付ける（PostgreSQL 15 以降）。
 
@@ -446,7 +442,7 @@ create trigger nodes_check_hierarchy
 
 ### 4.3 DB では保証せず、アプリで検証するもの
 
-DB の制約では書きにくいものは、`front/src/domain`（#9）の関数で、保存する前に検証する。RLS や RPC 関数の中で確認できるものは、そちらでも二重に守る（`docs/api.md`）。
+DB の制約では書きにくいものは、`front/src/domain`（#9）の関数で、保存する前に検証する。RPC 関数の中で確認できるものは、そちらでも二重に守る（`docs/api.md`）。
 
 - `attribute_type` が、ノードの `node_kind`（と `layer_type`）に許されたものか（不変条件2）
 - `value` の形が `attribute_type` に合っているか（不変条件3）
@@ -496,12 +492,11 @@ DB の制約では書きにくいものは、`front/src/domain`（#9）の関数
 
 ## 7. RLS（Row Level Security）の方針
 
-バックエンドは作らず、フロントエンドから Supabase に直接アクセスする（[`docs/api.md`](./api.md)）。ブラウザに渡すのは anon キーだけなので、**誰がどの行を読み書きできるかは、すべて RLS で守る。**
+**セキュリティは扱わないので、RLS は使わない。** すべてのテーブルで RLS を無効にし、フロントエンドから anon キーだけで読み書きする（[`docs/api.md`](./api.md)）。
 
-1. すべてのテーブルで RLS を有効にする。ポリシーがない操作はすべて拒否される。
-2. ポリシーの一覧と補助関数（`is_researcher()`・`session_method()` など）は `docs/api.md` §4 で定義する。
-3. 研究者も被験者も Supabase Auth でログインし、`users.auth_user_id = auth.uid()` で `users` の行と結びつける（`docs/api.md` §3）。
-4. `service_role` キーは RLS をすべて無視できるので、フロントエンドのコード・環境変数・Git のどこにも置かない。マイグレーションや seed を流すときだけ、研究者の手元で使う。
+- ログインはしない。被験者は実験用の ID（`users.name`）を入力して、自分の行を探す（`docs/api.md` §3）。
+- 実験の条件ごとに見せる範囲（時系列の条件の被験者に設計時の判断を見せない、など）は、フロントエンドの application 層で守る（`docs/api.md` §4）。
+- anon キーと URL を知っていれば誰でも全データを読み書き・削除できる状態になるので、Supabase のプロジェクトの URL は外部に公開しない。実験の前後には、データをバックアップ（Supabase の管理画面からのエクスポート）しておく。
 
 ---
 

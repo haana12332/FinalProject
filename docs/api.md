@@ -1,12 +1,13 @@
 # Supabase アクセス設計
 
-**バックエンドは作らない。** フロントエンド（React）の infrastructure 層から、Supabase に直接アクセスする。このドキュメントでは、そのときに使う「エンドポイント」を決める。具体的には次の5つである。
+**バックエンドは作らない。** フロントエンド（React）の infrastructure 層から、Supabase に直接アクセスする。このドキュメントでは、そのときに使う「エンドポイント」を決める。具体的には次の4つである。
 
 - テーブルへのアクセス（Supabase の REST API ＝ PostgREST）
 - RPC 関数（PostgreSQL の関数）
-- 誰がどのデータを読み書きできるか（RLS）
 - エラーの扱い
 - 担当 Issue
+
+**セキュリティ（ログイン・権限・RLS）は扱わない**（研究用の実験ツールで、外部に公開しないため）。
 
 データの定義は [`docs/domain.md`](./domain.md) と [`docs/db-schema.md`](./db-schema.md) を正とする。
 
@@ -28,7 +29,7 @@ flowchart LR
         I["infrastructure<br/>リポジトリの実装<br/>Supabase クライアント"] -.実装する.-> A
         I --> D
     end
-    I -->|"supabase-js<br/>（anon キー＋ログイン中のトークン）"| S[("Supabase<br/>PostgREST・RPC・Auth<br/>RLS で権限を判定")]
+    I -->|"supabase-js<br/>（anon キー）"| S[("Supabase<br/>PostgREST・RPC")]
 ```
 
 |層|置き場所|持つもの|
@@ -44,8 +45,8 @@ flowchart LR
 ### 1.2 Supabase クライアント
 
 - `front/src/infrastructure/supabase/client.ts` に1つだけ作る（#11）。
-- 使うのは **anon キー**だけ。URL とキーは `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` の環境変数で渡す。anon キーはブラウザに公開される前提のキーで、権限は RLS（§4）で守る。
-- **`service_role` キーはフロントエンドのコード・環境変数・Git のどこにも置かない。** RLS をすべて無視できるキーなので、ブラウザに渡ると全データを読み書きされる。
+- 使うのは **anon キー**だけ。URL とキーは `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` の環境変数で渡す。
+- RLS は使わない（§4）。anon キーだけで、すべてのテーブルを読み書きできる。
 - DB の型は `supabase gen types typescript` で `front/src/infrastructure/supabase/types.ts` に生成し（#10）、`createClient<Database>()` に渡す。
 
 ### 1.3 「エンドポイント」の種類
@@ -53,8 +54,7 @@ flowchart LR
 |種類|使う場面|supabase-js の呼び方|実際の HTTP|
 |---|---|---|---|
 |テーブル操作|1つのテーブルの一覧・取得・作成・更新・削除|`supabase.from('projects').select()` など|`GET/POST/PATCH/DELETE /rest/v1/projects`|
-|RPC 関数|複数のテーブルを1トランザクションで書く処理、権限の判定が複雑な読み取り|`supabase.rpc('import_page', { … })`|`POST /rest/v1/rpc/import_page`|
-|Auth|ログイン・ログアウト|`supabase.auth.signInWithPassword()` など|`/auth/v1/...`|
+|RPC 関数|複数のテーブルを1トランザクションで書く処理、複数のテーブルをまとめて読む処理|`supabase.rpc('import_page', { … })`|`POST /rest/v1/rpc/import_page`|
 |Storage|画像ファイル（`image_ref` の参照先）|`supabase.storage.from('images')`|`/storage/v1/...`|
 
 supabase-js は、複数の SQL を1つのトランザクションにまとめられない。**複数のテーブル・複数の行を「全部保存するか、何も保存しないか」にしたい処理は、必ず RPC 関数にする。**
@@ -67,7 +67,7 @@ supabase-js は、複数の SQL を1つのトランザクションにまとめ�
 - 列名・キーは DB と同じ小文字のスネークケース。ドメインの型も同じ名前にそろえ、変換の手間をなくす。
 - 時刻は DB の `timestamptz` を ISO 8601 の文字列として受け取る。
 - 1回の `select` で返る行数には上限がある（既定 1000 行）。操作ログの CSV 出力など大量の行を読む処理は、`range()` で分けて読む。
-- 保存の前に、`front/src/domain` の検証関数で不変条件を確認する。DB の制約・トリガー・RLS でも二重に守る。
+- 保存の前に、`front/src/domain` の検証関数で不変条件を確認する。DB の制約・トリガーでも二重に守る。
 
 ### 2.1 エラーの変換
 
@@ -75,7 +75,7 @@ Supabase から返るエラーを、infrastructure 層でアプリのエラー�
 
 ```ts
 type AppError = {
-  code: 'unauthorized' | 'forbidden' | 'not_found' | 'conflict'
+  code: 'not_found' | 'conflict'
       | 'naming_violation' | 'hierarchy_violation' | 'domain_violation'
       | 'network_error' | 'internal_error'
   message: string        // 画面にそのまま出せる日本語
@@ -85,8 +85,6 @@ type AppError = {
 
 |Supabase のエラー|code|内容|
 |---|---|---|
-|Auth のセッション切れ・`PGRST301`（JWT が無効）|`unauthorized`|ログインが必要|
-|`42501`（RLS で拒否された）|`forbidden`|権限がない|
 |`PGRST116`（`single()` で行がない）|`not_found`|データがない|
 |`23505`（一意制約違反）・`23503`（外部キー違反。`restrict` で削除できない場合を含む）|`conflict`|重複している、または関連するデータがあるので消せない|
 |`DR001`（階層のトリガー。§2.2）|`hierarchy_violation`|階層の制約違反|
@@ -107,76 +105,47 @@ type AppError = {
 
 ---
 
-## 3. 認証
+## 3. 被験者の識別
 
-研究者も被験者も Supabase Auth を使う。RLS は `auth.uid()` から `users` の行を引き、`users.role` で権限を判断する。
+**ログインはしない。** 研究者用の画面には、誰でもそのまま入れる。
 
-|利用者|ログインの方法|`users` の行との結びつけ|
-|---|---|---|
-|研究者|メールとパスワード（`signInWithPassword`）|`users.auth_user_id = auth.uid()`。研究者の行は SQL（seed）で作る|
-|被験者（**案**）|匿名ログイン（`signInAnonymously`）のあと、実験用の ID（例：`P01`）とアクセスコードを入力する|RPC 関数 `claim_participant` が、ID とコードが合えば `users.auth_user_id` に `auth.uid()` を入れる|
-
-- Supabase の設定で、**メールアドレスによる新規登録（Sign up）を無効**にする。誰でも研究者のアカウントを作れないようにするため。
-- 被験者のために **匿名ログイン（Anonymous Sign-Ins）を有効**にする。匿名のユーザーは、`claim_participant` が成功するまで、どのデータも読めない（RLS で `users` の行がないため）。
-- 被験者の行とアクセスコードは、研究者が #30 の画面で作る。アクセスコードはハッシュにして `users.access_code_hash` に保存する（`db-schema.md` の `users`）。
-- 被験者のログイン方法は #6（実験運用仕様）で確定する。変わった場合はこの節を直す。
+- 被験者は、開始画面で実験用の ID（例：`P01`）を入力する。`ParticipantRepository.findByName` で `users` の行を探し、見つかれば自分に割り当てられたセッションを表示する（#30）。
+- 選んだセッションの情報（`participant_id`・`session_id`・`project_id`・`method`）は、画面の状態（`SessionContext`、#13）として持つ。リロードしても続けられるよう、`sessionStorage` にも保存する。
 
 ---
 
-## 4. RLS（行単位の権限）
+## 4. 実験の条件ごとに見せる範囲
 
-### 4.1 補助関数
+**RLS は使わない。** すべてのテーブルで RLS を無効にする。
 
-ポリシーを短く保つため、次の関数を `security definer` で作る（#10）。どれも `auth.uid()` をもとに判断する。
+ただし、実験の2条件（時系列 / 構造型）で被験者に見える情報をそろえることは、セキュリティではなく実験の妥当性のために必要である。そこで、**被験者の画面では、セッションの `method` に応じて取得するデータを application 層で絞る。**
 
-|関数|返す値|
-|---|---|
-|`app_user_id()`|ログイン中のユーザーの `users.id`（なければ `null`）|
-|`is_researcher()`|ログイン中のユーザーが研究者なら `true`|
-|`session_method(project_id uuid)`|ログイン中の被験者がそのプロジェクトに割り当てられていれば、その手法（`timeline` / `structural`）。割り当てがなければ `null`|
-|`gui_project_id(gui_id uuid)`|GUI が属するプロジェクトの ID|
+|データ|研究者|被験者（構造型）|被験者（時系列）|
+|---|:-:|:-:|:-:|
+|GUI の構造と Figma 由来の属性|○|○|○|
+|状態遷移リンクと、プロトタイプの再生に必要な属性（`trigger`・`transition_method`）|○|○|○|
+|研究者が入力した属性（`source = manual`。上の2つを除く）と設計時の判断|○|○|×|
+|時系列データ|○|×|○|
 
-### 4.2 ポリシーの一覧
-
-研究者（`is_researcher()`）は、すべてのテーブルを読める。書き込みは下の表の「研究者」列に従う。被験者は「被験者」列の範囲だけを読み書きできる。
-
-|テーブル|研究者|被験者|
-|---|---|---|
-|users|すべて読み書き|自分の行だけ読む|
-|projects|すべて読み書き|割り当てられたプロジェクトだけ読む|
-|requirement_documents|すべて読み書き|割り当てられたプロジェクトの分だけ読む|
-|guis・nodes・links|すべて読み書き|割り当てられたプロジェクトの分だけ読む|
-|attributes|読む。書き込みは `source = 'manual'` の行だけ（`figma` の行は取り込みの RPC 関数だけが書く）|割り当てられたプロジェクトの分のうち、次のものだけ読む：`source = 'figma'` の行、`trigger`・`transition_method`（プロトタイプの再生に必要）、手法が `structural` なら残りすべて|
-|design_decisions|すべて読み書き|手法が `structural` のプロジェクトの分だけ読む|
-|timeline_events|すべて読み書き|手法が `timeline` のプロジェクトの分だけ読む|
-|sessions|すべて読み書き|自分のセッションだけ読む（開始・終了は RPC 関数で記録する）|
-|operation_logs|読むだけ|自分の、終了していないセッションにだけ追加する|
-|questions|読むだけ|自分のセッションの分を読み、追加する|
-|answers|読むだけ|自分の質問の分を読み、追加・更新する|
-
-- 「割り当てられた」＝ `session_method(project_id) is not null`。
-- この表で、**時系列の条件の被験者には設計時の判断と研究者が入力した属性を返さない**、**構造型の条件の被験者には時系列データを返さない**、という実験の条件を DB 側で守る。フロントエンドの表示の切り替えだけに頼らない。
+- 判定は `front/src/application/session/visibleScope.ts` の `visibleScopeFor(method)` に1か所だけ置く（#33）。各ユースケースは、これが返す範囲だけを取得する。
+- 被験者の画面では、見せないデータは**取得そのものをしない**（取得してから画面で隠すのではない）。`get_gui_tree` には `include_manual` 引数を付け、時系列の条件では `false` で呼ぶ（#18）。
 - 2条件で何をそろえるかは #7 で確定する。
-- ポリシーとこの補助関数のマイグレーションは #10 で作る。
 
 ---
 
 ## 5. RPC 関数
 
-|関数|内容|security|担当|
-|---|---|---|---|
-|`get_gui_tree(gui_id)`|GUI のノード・属性・リンクをまとめて返す（§6.1）。RLS がそのまま効く|invoker|#18|
-|`import_page(gui_id, payload)`|1ページ分のノードと属性を1トランザクションで保存する（§6.2）。研究者か確認する|definer|#18|
-|`reimport_page(page_node_id, payload)`|同じページの取り込み直し（扱いは #5 で決める）|definer|#18|
-|`update_page_position(page_node_id, x, y)`|ページの `x`・`y` 属性をまとめて更新する|invoker|#23|
-|`create_link(payload)`|リンクと、その属性（`trigger` など）を1トランザクションで作る|invoker|#24|
-|`get_design_decisions(gui_id)`|GUI の設計時の判断と、紐づく属性の一覧。RLS がそのまま効く|invoker|#26|
-|`import_timeline_events(project_id, events)`|時系列データを置き換える（全削除してから追加）|invoker|#28|
-|`assign_sessions(participant_ids, project_ids)`|ラテン方格に従ってセッションを作る|invoker|#30|
-|`claim_participant(name, access_code)`|匿名ログインした被験者を `users` の行に結びつける（§3）|definer|#30|
-|`start_session(session_id)` / `end_session(session_id)`|自分のセッションの開始・終了の時刻を記録する|definer|#33|
+|関数|内容|担当|
+|---|---|---|
+|`get_gui_tree(gui_id, include_manual)`|GUI のノード・属性・リンクをまとめて返す（§6.1）。`include_manual = false` のときは、研究者が入力した属性を `trigger`・`transition_method` 以外は返さない（§4）|#18|
+|`import_page(gui_id, payload)`|1ページ分のノードと属性を1トランザクションで保存する（§6.2）|#18|
+|`reimport_page(page_node_id, payload)`|同じページの取り込み直し（扱いは #5 で決める）|#18|
+|`update_page_position(page_node_id, x, y)`|ページの `x`・`y` 属性をまとめて更新する|#23|
+|`create_link(payload)`|リンクと、その属性（`trigger` など）を1トランザクションで作る|#24|
+|`get_design_decisions(gui_id)`|GUI の設計時の判断と、紐づく属性の一覧|#26|
+|`import_timeline_events(project_id, events)`|時系列データを置き換える（全削除してから追加）|#28|
+|`assign_sessions(participant_ids, project_ids)`|ラテン方格に従ってセッションを作る|#30|
 
-- `security definer` の関数は RLS を無視して動くので、関数の中で必ず権限（`is_researcher()`、セッションの持ち主か）を確認する。また、`search_path` を固定する（`set search_path = public`）。
 - 規則違反は、§2.2 のエラーコードで `raise exception` する。
 - それぞれの関数のマイグレーションは、担当の Issue の PR で追加する。
 
@@ -186,7 +155,7 @@ type AppError = {
 
 ### 6.1 GUI の構造の取得
 
-`supabase.rpc('get_gui_tree', { gui_id })`
+`supabase.rpc('get_gui_tree', { gui_id, include_manual })`
 
 入れ子にせず、テーブルごとの配列で返す。木構造は `parent_node_id` をもとに domain 層で組み立てる。
 
@@ -248,7 +217,7 @@ SVG はフロントエンド（`front/src/application/import`、#18）で読み�
 - 取り込みで作る属性は、すべて `source = 'figma'`。
 - **検証の順番**：
   1. 呼び出す前に、`front/src/domain` で命名規則・階層の制約・属性の種類と値の形を検証する。違反はすべて集め、保存せずに一覧で表示する
-  2. 関数の中でも、命名規則（`DR002`）と階層の制約（トリガーの `DR001`）を確認する。ブラウザ側の検証を通らずに呼ばれても、不正なデータが入らないようにするため
+  2. 関数の中でも、命名規則（`DR002`）と階層の制約（トリガーの `DR001`）を確認する。ブラウザ側の検証に漏れがあっても、不正なデータが入らないようにするため
 - **戻り値**：作成したページの分の `nodes` と `attributes`（§6.1 と同じ形）。
 
 ### 6.3 操作ログの保存
@@ -263,22 +232,18 @@ SVG はフロントエンド（`front/src/application/import`、#18）で読み�
 ```
 
 - ログはバッファにためて、まとめて `insert` する（#13）。
-- 画面を離れるとき（`visibilitychange` で `hidden` になったとき）は、残りを送り切る。`sendBeacon` は認証のヘッダーを付けられないので使わない。代わりに、`fetch` に `keepalive: true` を付けたログ専用のクライアント（`createClient(url, key, { global: { fetch } })`）で送る。`keepalive` は1回あたり 64KB までなので、分けて送る。
+- 画面を離れるとき（`visibilitychange` で `hidden` になったとき）は、残りを送り切る。`sendBeacon` は Supabase に必要な `apikey` ヘッダーを付けられないので使わない。代わりに、`fetch` に `keepalive: true` を付けたログ専用のクライアント（`createClient(url, key, { global: { fetch } })`）で送る。`keepalive` は1回あたり 64KB までなので、分けて送る。
 - `event_type` の一覧と `payload` の形は #6 で決め、`front/src/domain` に定義する。
 
 ---
 
 ## 7. データアクセスの一覧と担当 Issue
 
-「被験者」列が ○ のものは、被験者のログインでも使える（§4 の範囲に限る）。
+「被験者」列が ○ のものは、被験者の画面でも使う（§4 の範囲に限る）。
 
-### 7.1 認証・ユーザー
+### 7.1 認証
 
-|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
-|---|---|---|:-:|---|
-|`AuthRepository.signInResearcher`|`auth.signInWithPassword`|`POST /auth/v1/token`||#11|
-|`AuthRepository.signOut`|`auth.signOut`|`POST /auth/v1/logout`|○|#11|
-|`UserRepository.getCurrent`|`from('users').select().eq('auth_user_id', uid).single()`|`GET /rest/v1/users`|○|#11|
+ログインはしないので、認証のデータアクセスはない（§3）。
 
 ### 7.2 プロジェクト・GUI・ページ
 
@@ -354,10 +319,10 @@ SVG はフロントエンド（`front/src/application/import`、#18）で読み�
 |`SessionRepository.assign`|`rpc('assign_sessions')`|`POST /rest/v1/rpc/assign_sessions`||#30|
 |`SessionRepository.list`|`from('sessions').select()`|`GET /rest/v1/sessions`||#30|
 |`SessionRepository.delete`|`from('sessions').delete().eq('id', id)`|`DELETE /rest/v1/sessions`||#30|
-|`AuthRepository.signInParticipant`|`auth.signInAnonymously` → `rpc('claim_participant')`|`POST /auth/v1/signup`、`POST /rest/v1/rpc/claim_participant`|○|#30|
-|`SessionRepository.listMine`|`from('sessions').select()`（RLS で自分の分だけ返る）|`GET /rest/v1/sessions`|○|#30|
-|`SessionRepository.start`|`rpc('start_session')`|`POST /rest/v1/rpc/start_session`|○|#33|
-|`SessionRepository.end`|`rpc('end_session')`|`POST /rest/v1/rpc/end_session`|○|#33|
+|`ParticipantRepository.findByName`|`from('users').select().eq('role', 'participant').eq('name', name).single()`|`GET /rest/v1/users`|○|#30|
+|`SessionRepository.listByParticipant`|`from('sessions').select().eq('participant_id', id).order('order_index')`|`GET /rest/v1/sessions`|○|#30|
+|`SessionRepository.start`|`from('sessions').update({ started_at }).eq('id', id)`|`PATCH /rest/v1/sessions`|○|#33|
+|`SessionRepository.end`|`from('sessions').update({ ended_at }).eq('id', id)`|`PATCH /rest/v1/sessions`|○|#33|
 
 ### 7.9 操作ログ
 
@@ -390,7 +355,6 @@ CSV への変換とダウンロードは `front/src/infrastructure/csv`（#34）
 
 |担当|数|
 |---|:-:|
-|#11 Supabase クライアントと infrastructure 層の基盤|3|
 |#13 操作ログの記録基盤|1|
 |#17 プロジェクトとページの管理|10|
 |#18 GUI 成果物のインポート|3|
@@ -406,14 +370,13 @@ CSV への変換とダウンロードは `front/src/infrastructure/csv`（#34）
 |#32 質問への回答|2|
 |#33 被験者セッションの画面フロー|2|
 |#34 CSV 出力|2|
-|**計**|**51**|
+|**計**|**48**|
 
-データアクセスを持たない Issue：#14 キャンバス、#15 選択、#16 レイヤーパネル、#19 プロパティパネル、#20 デザイン画面、#25 プロトタイプ、#35 通しテスト。
+データアクセスを持たない Issue：#11 Supabase クライアントと infrastructure 層の基盤（クライアント・エラーの変換・リポジトリの書き方だけを作る）、#14 キャンバス、#15 選択、#16 レイヤーパネル、#19 プロパティパネル、#20 デザイン画面、#25 プロトタイプ、#35 通しテスト。
 
 ---
 
 ## 8. 未決事項
 
-- **被験者のログイン方法**（§3）：匿名ログイン＋ID とアクセスコードでよいか。#6 で確定する。
-- **被験者に見せる範囲**（§4.2）：2条件で何をそろえるか。#7 で確定する。
+- **被験者に見せる範囲**（§4）：2条件で何をそろえるか。#7 で確定する。
 - **取り込み直し**（`reimport_page`）：ノードの ID を保つか、作り直すか。作り直すと、実験を始めたあとのログの `target_node_id` が `null` になる（`db-schema.md` §5）。#5 で決める。
