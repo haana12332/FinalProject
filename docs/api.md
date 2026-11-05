@@ -1,338 +1,218 @@
-# API 設計
+# Supabase アクセス設計
 
-バックエンド（Express）の API の一覧と、共通の約束ごと。データの定義は [`docs/domain.md`](./domain.md) と [`docs/db-schema.md`](./db-schema.md) を正とする。
+**バックエンドは作らない。** フロントエンド（React）の infrastructure 層から、Supabase に直接アクセスする。このドキュメントでは、そのときに使う「エンドポイント」を決める。具体的には次の5つである。
 
-**各エンドポイントを実装する Issue は1つだけ**とし、§6 の対応表で決める。他の Issue は、実装済みのエンドポイントを呼ぶだけにする。
+- テーブルへのアクセス（Supabase の REST API ＝ PostgREST）
+- RPC 関数（PostgreSQL の関数）
+- 誰がどのデータを読み書きできるか（RLS）
+- エラーの扱い
+- 担当 Issue
 
-Issue : [[決めること] API 設計（エンドポイント一覧と担当 Issue）](https://github.com/haana12332/FinalProject/issues/4)
+データの定義は [`docs/domain.md`](./domain.md) と [`docs/db-schema.md`](./db-schema.md) を正とする。
+
+**各データアクセスを実装する Issue は1つだけ**とし、§7 の対応表で決める。他の Issue は、実装済みのリポジトリを呼ぶだけにする。
+
+Issue : [[決めること] Supabase アクセス設計](https://github.com/haana12332/FinalProject/issues/4)
 
 ---
 
-## 1. 共通の約束ごと
+## 1. 構成
 
-### 1.1 URL
+### 1.1 層と依存の向き（クリーンアーキテクチャ）
 
-- ベースは `/api`。パスは `backend/src/common/constants/Paths/Paths.ts` に定義する。
-- リソース名は**小文字のケバブケースの複数形**（例：`requirement-documents`、`design-decisions`）。
-- **入れ子は1段まで**（shallow nesting）。
-  - 一覧と作成は親の下に置く：`GET /api/projects/{project_id}/guis`
-  - 1件の取得・更新・削除は、そのリソースの直下に置く：`PATCH /api/guis/{gui_id}`
-- パスに動詞は入れない。CRUD で表せない操作（取り込み・割り当て・開始など）だけ、`POST .../import` のようにサブリソースとして表す。
-- ID はすべて uuid。
-
-### 1.2 リクエストとレスポンス
-
-- 本文は JSON（`Content-Type: application/json`）。CSV 出力だけ `text/csv`。
-- JSON のキーは、DB の列名と同じ**小文字のスネークケース**（例：`parent_node_id`）。
-- 時刻は ISO 8601（UTC）の文字列（例：`"2026-11-05T09:00:00.000Z"`）。
-- 成功時の形：
-
-```json
-{ "data": { "id": "…", "name": "T1 大学グッズ購入" } }
+```mermaid
+flowchart LR
+    subgraph front["front/src"]
+        P["presentation<br/>React の画面・部品"] --> A["application<br/>ユースケース<br/>リポジトリの interface"]
+        A --> D["domain<br/>エンティティ・不変条件"]
+        I["infrastructure<br/>リポジトリの実装<br/>Supabase クライアント"] -.実装する.-> A
+        I --> D
+    end
+    I -->|"supabase-js<br/>（anon キー＋ログイン中のトークン）"| S[("Supabase<br/>PostgREST・RPC・Auth<br/>RLS で権限を判定")]
 ```
 
-```json
-{ "data": [ { "id": "…" }, { "id": "…" } ] }
-```
+|層|置き場所|持つもの|
+|---|---|---|
+|domain|`front/src/domain`|エンティティ・値オブジェクト・不変条件の検証関数（#9）。React と Supabase に依存しない|
+|application|`front/src/application`|ユースケースと、リポジトリの interface（例：`ProjectRepository`）|
+|infrastructure|`front/src/infrastructure`|リポジトリの実装（`SupabaseProjectRepository` など）、Supabase クライアント、生成した DB の型、CSV 出力|
+|presentation|`front/src/presentation`|画面と部品。ユースケースを呼ぶだけで、Supabase を直接呼ばない|
 
-- リクエストの検証は zod（`express-zod-safe`）で行う。スキーマは `packages/domain`（#9）のものを使い、フロントエンドと共有する。
+- **Supabase を呼んでよいのは `front/src/infrastructure` だけ。** presentation と application から `supabase-js` を import しない（ESLint の `no-restricted-imports` で禁止する）。
+- リポジトリは「1つのテーブル（または集約）につき1つ」作り、置き場所は `front/src/infrastructure/supabase/repositories/` にする。
 
-### 1.3 HTTP ステータス
+### 1.2 Supabase クライアント
 
-|ステータス|使う場面|
-|---|---|
-|200 OK|取得・更新の成功|
-|201 Created|作成の成功（作成したものを `data` で返す）|
-|204 No Content|削除の成功（本文なし）|
-|400 Bad Request|リクエストの形が不正（zod の検証エラー）|
-|401 Unauthorized|認証情報がない・無効|
-|403 Forbidden|権限がない（被験者が研究者用の API を呼んだ、など）|
-|404 Not Found|リソースが存在しない|
-|409 Conflict|一意制約や削除制限（`restrict`）に当たった|
-|422 Unprocessable Entity|形は正しいが、ドメインの規則に違反している（階層の制約、命名規則など）|
-|500 Internal Server Error|想定外のエラー|
+- `front/src/infrastructure/supabase/client.ts` に1つだけ作る（#11）。
+- 使うのは **anon キー**だけ。URL とキーは `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` の環境変数で渡す。anon キーはブラウザに公開される前提のキーで、権限は RLS（§4）で守る。
+- **`service_role` キーはフロントエンドのコード・環境変数・Git のどこにも置かない。** RLS をすべて無視できるキーなので、ブラウザに渡ると全データを読み書きされる。
+- DB の型は `supabase gen types typescript` で `front/src/infrastructure/supabase/types.ts` に生成し（#10）、`createClient<Database>()` に渡す。
 
-### 1.4 エラーの形
+### 1.3 「エンドポイント」の種類
 
-```json
-{
-  "error": {
-    "code": "hierarchy_violation",
-    "message": "page の下に organism は置けません",
-    "details": [
-      { "layer_name": "O_Header", "parent_layer_name": "P_ProductDetail", "rule": "page_children_must_be_template" }
-    ]
-  }
+|種類|使う場面|supabase-js の呼び方|実際の HTTP|
+|---|---|---|---|
+|テーブル操作|1つのテーブルの一覧・取得・作成・更新・削除|`supabase.from('projects').select()` など|`GET/POST/PATCH/DELETE /rest/v1/projects`|
+|RPC 関数|複数のテーブルを1トランザクションで書く処理、権限の判定が複雑な読み取り|`supabase.rpc('import_page', { … })`|`POST /rest/v1/rpc/import_page`|
+|Auth|ログイン・ログアウト|`supabase.auth.signInWithPassword()` など|`/auth/v1/...`|
+|Storage|画像ファイル（`image_ref` の参照先）|`supabase.storage.from('images')`|`/storage/v1/...`|
+
+supabase-js は、複数の SQL を1つのトランザクションにまとめられない。**複数のテーブル・複数の行を「全部保存するか、何も保存しないか」にしたい処理は、必ず RPC 関数にする。**
+
+---
+
+## 2. 共通の約束ごと
+
+- リポジトリのメソッドは `async` で、ドメインの型（`front/src/domain`）を返す。DB の行の型（`types.ts`）を presentation に漏らさない。
+- 列名・キーは DB と同じ小文字のスネークケース。ドメインの型も同じ名前にそろえ、変換の手間をなくす。
+- 時刻は DB の `timestamptz` を ISO 8601 の文字列として受け取る。
+- 1回の `select` で返る行数には上限がある（既定 1000 行）。操作ログの CSV 出力など大量の行を読む処理は、`range()` で分けて読む。
+- 保存の前に、`front/src/domain` の検証関数で不変条件を確認する。DB の制約・トリガー・RLS でも二重に守る。
+
+### 2.1 エラーの変換
+
+Supabase から返るエラーを、infrastructure 層でアプリのエラー（`AppError`）に変換する（#11）。presentation は `AppError.code` だけを見て表示を分ける。
+
+```ts
+type AppError = {
+  code: 'unauthorized' | 'forbidden' | 'not_found' | 'conflict'
+      | 'naming_violation' | 'hierarchy_violation' | 'domain_violation'
+      | 'network_error' | 'internal_error'
+  message: string        // 画面にそのまま出せる日本語
+  details?: unknown[]    // 複数の違反をまとめて返すとき（取り込みの命名規則違反など）
 }
 ```
 
-|項目|内容|
+|Supabase のエラー|code|内容|
+|---|---|---|
+|Auth のセッション切れ・`PGRST301`（JWT が無効）|`unauthorized`|ログインが必要|
+|`42501`（RLS で拒否された）|`forbidden`|権限がない|
+|`PGRST116`（`single()` で行がない）|`not_found`|データがない|
+|`23505`（一意制約違反）・`23503`（外部キー違反。`restrict` で削除できない場合を含む）|`conflict`|重複している、または関連するデータがあるので消せない|
+|`DR001`（階層のトリガー。§2.2）|`hierarchy_violation`|階層の制約違反|
+|`DR002`（RPC 関数の命名規則違反）|`naming_violation`|レイヤー名の命名規則違反|
+|`23514`（CHECK 制約違反）・`DR003`（RPC 関数のその他の規則違反）|`domain_violation`|その他の不変条件の違反|
+|`fetch` の失敗|`network_error`|通信できない|
+|上記以外|`internal_error`|想定外のエラー。詳細はコンソールにだけ出す|
+
+### 2.2 独自のエラーコード
+
+トリガーや RPC 関数で規則違反を検出したときは、`raise exception ... using errcode = 'DR001'` のように独自の SQLSTATE を付ける。メッセージの文字列ではなくコードで判定できるようにするためである。`detail` に JSON を入れると、`AppError.details` として受け取れる。
+
+|SQLSTATE|意味|
 |---|---|
-|`code`|エラーの種類。小文字のスネークケース。フロントエンドはこれで処理を分ける|
-|`message`|画面にそのまま出せる日本語の説明|
-|`details`|任意。複数の違反をまとめて返すときの一覧（インポートの命名規則違反など）|
-
-|code|ステータス|内容|
-|---|---|---|
-|`validation_error`|400|リクエストの形が不正。`details` に zod のエラー|
-|`unauthorized`|401|認証が必要|
-|`forbidden`|403|権限がない|
-|`not_found`|404|リソースがない|
-|`conflict`|409|一意制約の違反、または削除できない（実験データが残っている、など）|
-|`naming_violation`|422|レイヤー名の命名規則違反（#5）|
-|`hierarchy_violation`|422|階層の制約違反（`db-schema.md` §4.2）|
-|`domain_violation`|422|その他の不変条件の違反（`domain.md` の不変条件）|
-|`internal_error`|500|想定外のエラー。詳細はサーバーのログにだけ出す|
-
-今の `server.ts` のエラー処理は `{ error: message, errors }` を返しているので、#11 でこの形に置き換える。
-
-### 1.5 認証と権限
-
-|利用者|認証の方法|付けるヘッダー|
-|---|---|---|
-|研究者|Supabase Auth でログインし、そのアクセストークンを使う|`Authorization: Bearer <Supabase のアクセストークン>`|
-|被験者|実験用の ID（例：`P01`）を入力すると、バックエンドがセッション用のトークンを発行する（§3.9）|`Authorization: Bearer <セッショントークン>`|
-
-- バックエンドはトークンを検証し、`users.role` で権限を判断する。
-- 被験者が使えるのは、§2 の表で「被験者」に ○ が付いた API だけ。さらに、**自分のセッションに割り当てられたプロジェクトのデータだけ**を読める。
-- 被験者の認証方法は #6（実験運用仕様）で確定する。変わった場合はこの節を直す。
-
-### 1.6 被験者に見せる範囲
-
-実験の2条件（時系列 / 構造型）で、被験者に見える情報を揃えるため、次のように絞る。
-
-|データ|研究者|被験者（構造型）|被験者（時系列）|
-|---|:-:|:-:|:-:|
-|GUI の構造と Figma 由来の属性|○|○|○|
-|状態遷移リンクと、プロトタイプの再生に必要な属性（`trigger`・`transition_method`）|○|○|○|
-|研究者が入力した属性（`source = manual`。上の2つを除く）と設計時の判断|○|○|×|
-|時系列データ|○|×|○|
-
-この判定はバックエンドで行い、フロントエンドの表示の切り替えだけに頼らない。2条件で何を揃えるかは #7 で確定する。
+|`DR001`|階層の制約違反（`db-schema.md` §4.2 のトリガー）|
+|`DR002`|命名規則違反（取り込み）|
+|`DR003`|その他のドメインの規則違反|
 
 ---
 
-## 2. エンドポイント一覧
+## 3. 認証
 
-「被験者」列が ○ の API は、被験者のトークンでも呼べる（§1.5・§1.6 の範囲に限る）。
+研究者も被験者も Supabase Auth を使う。RLS は `auth.uid()` から `users` の行を引き、`users.role` で権限を判断する。
 
-### 2.1 共通
+|利用者|ログインの方法|`users` の行との結びつけ|
+|---|---|---|
+|研究者|メールとパスワード（`signInWithPassword`）|`users.auth_user_id = auth.uid()`。研究者の行は SQL（seed）で作る|
+|被験者（**案**）|匿名ログイン（`signInAnonymously`）のあと、実験用の ID（例：`P01`）とアクセスコードを入力する|RPC 関数 `claim_participant` が、ID とコードが合えば `users.auth_user_id` に `auth.uid()` を入れる|
 
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|GET|`/api/health`|死活確認（認証なし）|○|#11|
-|GET|`/api/me`|ログイン中のユーザー|○|#11|
-
-### 2.2 プロジェクト・GUI・ページ
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|GET|`/api/projects`|プロジェクトの一覧||#17|
-|POST|`/api/projects`|プロジェクトの作成||#17|
-|GET|`/api/projects/{project_id}`|プロジェクトの取得|○|#17|
-|PATCH|`/api/projects/{project_id}`|プロジェクトの更新||#17|
-|DELETE|`/api/projects/{project_id}`|プロジェクトの削除（セッションがあれば 409）||#17|
-|GET|`/api/projects/{project_id}/guis`|GUI の一覧（ページの一覧を含む）|○|#17|
-|POST|`/api/projects/{project_id}/guis`|GUI の作成||#17|
-|PATCH|`/api/guis/{gui_id}`|GUI の更新||#17|
-|DELETE|`/api/guis/{gui_id}`|GUI の削除||#17|
-|DELETE|`/api/pages/{page_node_id}`|ページ（とその配下）の削除||#17|
-
-### 2.3 取り込みと GUI の構造
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|POST|`/api/guis/{gui_id}/pages/import`|ページの取り込み（§4 の一括登録）||#18|
-|PUT|`/api/pages/{page_node_id}/import`|同じページの取り込み直し（扱いは #5 で決める）||#18|
-|GET|`/api/guis/{gui_id}/tree`|GUI の構造（ノード・属性・リンク）をまとめて取得|○|#18|
-|PATCH|`/api/pages/{page_node_id}/position`|ページの位置（`x`・`y`）の更新||#23|
-
-`GET /api/guis/{gui_id}/tree` は、キャンバス（#14）・レイヤーパネル（#16）・プロパティパネル（#19）・デザイン画面（#20）・プロトタイプ（#25）がすべて使う。**これらの Issue では、GUI の構造を取得する API を新しく作らない。**
-
-### 2.4 状態遷移リンクと属性
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|POST|`/api/links`|リンクの作成（`trigger` などの属性も同時に作れる）||#24|
-|PATCH|`/api/links/{link_id}`|リンクの更新||#24|
-|DELETE|`/api/links/{link_id}`|リンクの削除||#24|
-|POST|`/api/attributes`|研究者が入力する属性の作成（`node_id` か `link_id` のどちらか一方）||#24|
-|PATCH|`/api/attributes/{attribute_id}`|属性の値の更新||#24|
-|DELETE|`/api/attributes/{attribute_id}`|属性の削除||#24|
-
-- 属性の API は、リンクの属性（#24）と設計根拠の入力（#27）の両方で使うので、先に実装する #24 が担当する。#27 はこれを呼ぶ。
-- `source = figma` の属性は API から変更・削除できない（422 `domain_violation`）。Figma 由来の値は取り込み直しでだけ変わる。
-
-### 2.5 設計時の判断
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|GET|`/api/guis/{gui_id}/design-decisions`|GUI の設計時の判断と、研究者が入力した属性の一覧|○（構造型のみ）|#26|
-|POST|`/api/design-decisions`|判断の作成||#27|
-|PATCH|`/api/design-decisions/{design_decision_id}`|判断の更新||#27|
-|DELETE|`/api/design-decisions/{design_decision_id}`|判断の削除||#27|
-
-### 2.6 要件定義書
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|GET|`/api/projects/{project_id}/requirement-documents`|要件書の一覧|○|#21|
-|POST|`/api/projects/{project_id}/requirement-documents`|要件書の作成||#21|
-|GET|`/api/requirement-documents/{requirement_document_id}`|要件書の取得|○|#21|
-|PATCH|`/api/requirement-documents/{requirement_document_id}`|要件書の更新||#21|
-|DELETE|`/api/requirement-documents/{requirement_document_id}`|要件書の削除||#21|
-
-### 2.7 時系列データ
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|POST|`/api/projects/{project_id}/timeline-events/import`|時系列データの取り込み（既存の分を置き換える）||#28|
-|DELETE|`/api/projects/{project_id}/timeline-events`|時系列データの全削除||#28|
-|GET|`/api/projects/{project_id}/timeline-events`|時系列データの一覧（`step_index` の順）|○（時系列のみ）|#29|
-
-### 2.8 被験者とセッション
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|GET|`/api/participants`|被験者の一覧||#30|
-|POST|`/api/participants`|被験者の登録（複数まとめて登録できる）||#30|
-|DELETE|`/api/participants/{user_id}`|被験者の削除（セッションがあれば 409）||#30|
-|POST|`/api/sessions/assign`|ラテン方格に従ってセッションを作る||#30|
-|GET|`/api/sessions`|セッションの一覧（`?participant_id=` で絞り込み）||#30|
-|DELETE|`/api/sessions/{session_id}`|セッションの削除（ログ・質問があれば 409）||#30|
-|POST|`/api/participant-auth/login`|被験者が ID を入力し、セッショントークンと自分のセッションを受け取る|○|#30|
-|GET|`/api/me/sessions`|自分に割り当てられたセッションの一覧|○|#30|
-|POST|`/api/sessions/{session_id}/start`|セッションの開始（`started_at` を記録）|○|#33|
-|POST|`/api/sessions/{session_id}/end`|セッションの終了（`ended_at` を記録）|○|#33|
-
-### 2.9 操作ログ
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|POST|`/api/sessions/{session_id}/operation-logs`|操作ログをまとめて保存（配列で送る）|○|#13|
-
-画面を離れるときの送信には、`sendBeacon` ではなく `fetch(..., { keepalive: true })` を使う。`sendBeacon` は `Authorization` ヘッダーを付けられないため。
-
-### 2.10 質問と回答
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|POST|`/api/sessions/{session_id}/questions`|質問の作成・送信|○|#31|
-|GET|`/api/sessions/{session_id}/questions`|セッションの質問と回答の一覧|○|#32|
-|PUT|`/api/questions/{question_id}/answer`|回答の保存・送信（1つの質問に回答は1つ）|○|#32|
-|GET|`/api/questions`|質問と回答の一覧（研究者用。`?project_id=`・`?session_id=` で絞り込み）||#34|
-
-質問を送信後に編集できるかは #6 で決める。編集できる場合は `PATCH /api/questions/{question_id}` を #31 に追加する。
-
-### 2.11 CSV 出力
-
-|メソッド|パス|内容|被験者|担当|
-|---|---|---|:-:|---|
-|GET|`/api/exports/operation-logs.csv`|操作ログの CSV（`?session_id=` または `?project_id=`、なければ全件）||#34|
-|GET|`/api/exports/questions.csv`|質問と回答の CSV（絞り込みは同上）||#34|
+- Supabase の設定で、**メールアドレスによる新規登録（Sign up）を無効**にする。誰でも研究者のアカウントを作れないようにするため。
+- 被験者のために **匿名ログイン（Anonymous Sign-Ins）を有効**にする。匿名のユーザーは、`claim_participant` が成功するまで、どのデータも読めない（RLS で `users` の行がないため）。
+- 被験者の行とアクセスコードは、研究者が #30 の画面で作る。アクセスコードはハッシュにして `users.access_code_hash` に保存する（`db-schema.md` の `users`）。
+- 被験者のログイン方法は #6（実験運用仕様）で確定する。変わった場合はこの節を直す。
 
 ---
 
-## 3. 主なリクエストとレスポンス
+## 4. RLS（行単位の権限）
 
-### 3.1 GUI の構造の取得
+### 4.1 補助関数
 
-`GET /api/guis/{gui_id}/tree`
+ポリシーを短く保つため、次の関数を `security definer` で作る（#10）。どれも `auth.uid()` をもとに判断する。
 
-入れ子にせず、テーブルごとの配列で返す。木構造は `parent_node_id` をもとにフロントエンドで組み立てる。
+|関数|返す値|
+|---|---|
+|`app_user_id()`|ログイン中のユーザーの `users.id`（なければ `null`）|
+|`is_researcher()`|ログイン中のユーザーが研究者なら `true`|
+|`session_method(project_id uuid)`|ログイン中の被験者がそのプロジェクトに割り当てられていれば、その手法（`timeline` / `structural`）。割り当てがなければ `null`|
+|`gui_project_id(gui_id uuid)`|GUI が属するプロジェクトの ID|
+
+### 4.2 ポリシーの一覧
+
+研究者（`is_researcher()`）は、すべてのテーブルを読める。書き込みは下の表の「研究者」列に従う。被験者は「被験者」列の範囲だけを読み書きできる。
+
+|テーブル|研究者|被験者|
+|---|---|---|
+|users|すべて読み書き|自分の行だけ読む|
+|projects|すべて読み書き|割り当てられたプロジェクトだけ読む|
+|requirement_documents|すべて読み書き|割り当てられたプロジェクトの分だけ読む|
+|guis・nodes・links|すべて読み書き|割り当てられたプロジェクトの分だけ読む|
+|attributes|読む。書き込みは `source = 'manual'` の行だけ（`figma` の行は取り込みの RPC 関数だけが書く）|割り当てられたプロジェクトの分のうち、次のものだけ読む：`source = 'figma'` の行、`trigger`・`transition_method`（プロトタイプの再生に必要）、手法が `structural` なら残りすべて|
+|design_decisions|すべて読み書き|手法が `structural` のプロジェクトの分だけ読む|
+|timeline_events|すべて読み書き|手法が `timeline` のプロジェクトの分だけ読む|
+|sessions|すべて読み書き|自分のセッションだけ読む（開始・終了は RPC 関数で記録する）|
+|operation_logs|読むだけ|自分の、終了していないセッションにだけ追加する|
+|questions|読むだけ|自分のセッションの分を読み、追加する|
+|answers|読むだけ|自分の質問の分を読み、追加・更新する|
+
+- 「割り当てられた」＝ `session_method(project_id) is not null`。
+- この表で、**時系列の条件の被験者には設計時の判断と研究者が入力した属性を返さない**、**構造型の条件の被験者には時系列データを返さない**、という実験の条件を DB 側で守る。フロントエンドの表示の切り替えだけに頼らない。
+- 2条件で何をそろえるかは #7 で確定する。
+- ポリシーとこの補助関数のマイグレーションは #10 で作る。
+
+---
+
+## 5. RPC 関数
+
+|関数|内容|security|担当|
+|---|---|---|---|
+|`get_gui_tree(gui_id)`|GUI のノード・属性・リンクをまとめて返す（§6.1）。RLS がそのまま効く|invoker|#18|
+|`import_page(gui_id, payload)`|1ページ分のノードと属性を1トランザクションで保存する（§6.2）。研究者か確認する|definer|#18|
+|`reimport_page(page_node_id, payload)`|同じページの取り込み直し（扱いは #5 で決める）|definer|#18|
+|`update_page_position(page_node_id, x, y)`|ページの `x`・`y` 属性をまとめて更新する|invoker|#23|
+|`create_link(payload)`|リンクと、その属性（`trigger` など）を1トランザクションで作る|invoker|#24|
+|`get_design_decisions(gui_id)`|GUI の設計時の判断と、紐づく属性の一覧。RLS がそのまま効く|invoker|#26|
+|`import_timeline_events(project_id, events)`|時系列データを置き換える（全削除してから追加）|invoker|#28|
+|`assign_sessions(participant_ids, project_ids)`|ラテン方格に従ってセッションを作る|invoker|#30|
+|`claim_participant(name, access_code)`|匿名ログインした被験者を `users` の行に結びつける（§3）|definer|#30|
+|`start_session(session_id)` / `end_session(session_id)`|自分のセッションの開始・終了の時刻を記録する|definer|#33|
+
+- `security definer` の関数は RLS を無視して動くので、関数の中で必ず権限（`is_researcher()`、セッションの持ち主か）を確認する。また、`search_path` を固定する（`set search_path = public`）。
+- 規則違反は、§2.2 のエラーコードで `raise exception` する。
+- それぞれの関数のマイグレーションは、担当の Issue の PR で追加する。
+
+---
+
+## 6. 主な入出力
+
+### 6.1 GUI の構造の取得
+
+`supabase.rpc('get_gui_tree', { gui_id })`
+
+入れ子にせず、テーブルごとの配列で返す。木構造は `parent_node_id` をもとに domain 層で組み立てる。
 
 ```json
 {
-  "data": {
-    "gui": { "id": "…", "project_id": "…", "name": "大学生協 EC サイト", "description": null },
-    "nodes": [
-      { "id": "n-page", "parent_node_id": null, "layer_name": "P_ProductDetail", "layer_type": "page", "node_kind": "frame", "sort_order": 0 },
-      { "id": "n-body", "parent_node_id": "n-page", "layer_name": "T_Body", "layer_type": "template", "node_kind": "frame", "sort_order": 1 }
-    ],
-    "attributes": [
-      { "id": "…", "node_id": "n-body", "link_id": null, "attribute_type": "y", "value": 80, "source": "figma" }
-    ],
-    "links": [
-      { "id": "…", "source_node_id": "…", "target_node_id": "…", "name": "商品詳細へ" }
-    ]
-  }
-}
-```
-
-### 3.2 リンクの作成
-
-`POST /api/links`
-
-```json
-{
-  "source_node_id": "…",
-  "target_node_id": "…",
-  "name": "商品詳細へ",
+  "gui": { "id": "…", "project_id": "…", "name": "大学生協 EC サイト", "description": null },
+  "nodes": [
+    { "id": "n-page", "parent_node_id": null, "layer_name": "P_ProductDetail", "layer_type": "page", "node_kind": "frame", "sort_order": 0 },
+    { "id": "n-body", "parent_node_id": "n-page", "layer_name": "T_Body", "layer_type": "template", "node_kind": "frame", "sort_order": 1 }
+  ],
   "attributes": [
-    { "attribute_type": "trigger", "value": "click" },
-    { "attribute_type": "transition_method", "value": "replace" }
+    { "id": "…", "node_id": "n-body", "link_id": null, "attribute_type": "y", "value": 80, "source": "figma" }
+  ],
+  "links": [
+    { "id": "…", "source_node_id": "…", "target_node_id": "…", "name": "商品詳細へ" }
   ]
 }
 ```
 
-リンクと属性は1つのトランザクションで保存する（§4 と同じ方法）。
+キャンバス（#14）・レイヤーパネル（#16）・プロパティパネル（#19）・デザイン画面（#20）・プロトタイプ（#25）は、すべてこれを使う。**これらの Issue では、GUI の構造を取得する処理を新しく作らない。**
 
-### 3.3 設計時の判断の作成
+### 6.2 ページの取り込み（一括登録）
 
-`POST /api/design-decisions`
+`supabase.rpc('import_page', { gui_id, payload })`
 
-```json
-{
-  "attribute_id": "…",
-  "determine_type": "static_property",
-  "comments": "親（Main）の左右の余白 160px に合わせて x を決めた"
-}
-```
-
-`determine_type` が属性の `attribute_type` に対応しない場合は、422 `domain_violation` を返す。
-
-### 3.4 被験者のログイン
-
-`POST /api/participant-auth/login`
-
-```json
-{ "name": "P01" }
-```
-
-```json
-{
-  "data": {
-    "token": "…",
-    "user": { "id": "…", "name": "P01", "role": "participant" },
-    "sessions": [
-      { "id": "…", "project_id": "…", "method": "structural", "order_index": 1, "started_at": null, "ended_at": null }
-    ]
-  }
-}
-```
-
-### 3.5 操作ログの保存
-
-`POST /api/sessions/{session_id}/operation-logs`
-
-```json
-{
-  "logs": [
-    { "event_type": "object_select", "target_node_id": "…", "payload": { "layer_type": "organism" }, "occurred_at": "2026-11-05T09:00:01.120Z" },
-    { "event_type": "zoom", "target_node_id": null, "payload": { "scale": 1.5 }, "occurred_at": "2026-11-05T09:00:02.004Z" }
-  ]
-}
-```
-
-`event_type` の一覧と `payload` の形は #6 で決め、`packages/domain` に定義する。
-
----
-
-## 4. 一括登録（取り込み）の形
-
-`POST /api/guis/{gui_id}/pages/import`
-
-SVG はフロントエンドで読み（#18）、ノードの木と属性に変換してから送る。**1ページ分を1回のリクエストで送り、1つのトランザクションで保存する。** 途中でエラーになったら何も保存しない。
+SVG はフロントエンド（`front/src/application/import`、#18）で読み、ノードの木と属性に変換してから渡す。**1ページ分を1回の呼び出しで渡し、1つのトランザクションで保存する。** 途中でエラーになったら何も保存しない。
 
 ```json
 {
@@ -358,80 +238,182 @@ SVG はフロントエンドで読み（#18）、ノードの木と属性に変�
       "layer_type": "template",
       "node_kind": "frame",
       "sort_order": 1,
-      "attributes": [
-        { "attribute_type": "y", "value": 80 }
-      ]
+      "attributes": [ { "attribute_type": "y", "value": 80 } ]
     }
   ]
 }
 ```
 
-- **`ref` / `parent_ref`**：リクエストの中だけで使う仮の番号。ノードの uuid はまだないので、親子関係はこれで表す。保存時にバックエンドが uuid に置き換える。
-- 取り込みで作る属性は、すべて `source = figma`。
+- **`ref` / `parent_ref`**：この呼び出しの中だけで使う仮の番号。ノードの uuid はまだないので、親子関係はこれで表す。関数の中で uuid に置き換える。
+- 取り込みで作る属性は、すべて `source = 'figma'`。
 - **検証の順番**：
-  1. zod でリクエストの形を検証する（400 `validation_error`）
-  2. `packages/domain` で、命名規則（422 `naming_violation`）・階層の制約（422 `hierarchy_violation`）・属性の種類と値の形（422 `domain_violation`）を検証する。違反はすべて集めて `details` で一度に返す
-  3. DB に保存する。DB のトリガーや制約でエラーになった場合も、同じエラーの形に変換して返す
-- **トランザクションの実現方法**：Supabase の JS クライアントは、複数の SQL を1つのトランザクションにまとめられない。そこで、取り込みを行う PostgreSQL の関数（例：`import_page(gui_id uuid, payload jsonb)`）を作り、バックエンドから `supabase.rpc('import_page', …)` で呼ぶ。この関数のマイグレーションは #18 で追加する。
-- **レスポンス**：201。作成したページを §3.1 と同じ形（そのページの分の `nodes` と `attributes`）で返す。
+  1. 呼び出す前に、`front/src/domain` で命名規則・階層の制約・属性の種類と値の形を検証する。違反はすべて集め、保存せずに一覧で表示する
+  2. 関数の中でも、命名規則（`DR002`）と階層の制約（トリガーの `DR001`）を確認する。ブラウザ側の検証を通らずに呼ばれても、不正なデータが入らないようにするため
+- **戻り値**：作成したページの分の `nodes` と `attributes`（§6.1 と同じ形）。
 
-時系列データの取り込み（`POST /api/projects/{project_id}/timeline-events/import`）とリンクの作成（§3.2）も、同じく PostgreSQL の関数で1つのトランザクションにする。
+### 6.3 操作ログの保存
 
----
+`supabase.from('operation_logs').insert(logs)`
 
-## 5. リソースの構成
-
-```mermaid
-flowchart LR
-    api["/api"] --> projects["projects"]
-    projects --> guis["projects/{id}/guis"]
-    projects --> reqs["projects/{id}/requirement-documents"]
-    projects --> tl["projects/{id}/timeline-events"]
-    guis --> import["guis/{id}/pages/import"]
-    guis --> tree["guis/{id}/tree"]
-    guis --> dd["guis/{id}/design-decisions"]
-    api --> links["links"]
-    api --> attrs["attributes"]
-    api --> ddw["design-decisions"]
-    api --> participants["participants"]
-    api --> sessions["sessions"]
-    sessions --> logs["sessions/{id}/operation-logs"]
-    sessions --> questions["sessions/{id}/questions"]
-    api --> answer["questions/{id}/answer"]
-    api --> exports["exports/*.csv"]
+```json
+[
+  { "session_id": "…", "event_type": "object_select", "target_node_id": "…", "payload": { "layer_type": "organism" }, "occurred_at": "2026-11-05T09:00:01.120Z" },
+  { "session_id": "…", "event_type": "zoom", "target_node_id": null, "payload": { "scale": 1.5 }, "occurred_at": "2026-11-05T09:00:02.004Z" }
+]
 ```
 
----
-
-## 6. 担当 Issue の対応表
-
-|担当|エンドポイント数|エンドポイント|
-|---|:-:|---|
-|#11 バックエンド基盤|2|`GET /health`、`GET /me`（研究者の認証の仕組みとエラーの形も含む）|
-|#13 操作ログの記録基盤|1|`POST /sessions/{id}/operation-logs`|
-|#17 プロジェクトとページの管理|10|projects の CRUD、guis の一覧・作成・更新・削除、`DELETE /pages/{id}`|
-|#18 GUI 成果物のインポート|3|`POST /guis/{id}/pages/import`、`PUT /pages/{id}/import`、`GET /guis/{id}/tree`|
-|#21 要件定義書の登録と閲覧|5|requirement-documents の CRUD|
-|#23 ページ層の移動|1|`PATCH /pages/{id}/position`|
-|#24 状態遷移リンクの作成|6|links の作成・更新・削除、attributes の作成・更新・削除|
-|#26 設計根拠の表示|1|`GET /guis/{id}/design-decisions`|
-|#27 設計根拠の入力|3|design-decisions の作成・更新・削除|
-|#28 時系列データの取り込み|2|timeline-events の取り込み・全削除|
-|#29 時系列ビュー|1|`GET /projects/{id}/timeline-events`|
-|#30 被験者 ID と検証パターンの割り当て|8|participants、sessions の割り当て・一覧・削除、被験者のログイン、`GET /me/sessions`|
-|#31 質問の作成と送信|1|`POST /sessions/{id}/questions`|
-|#32 質問への回答|2|`GET /sessions/{id}/questions`、`PUT /questions/{id}/answer`|
-|#33 被験者セッションの画面フロー|2|`POST /sessions/{id}/start`、`POST /sessions/{id}/end`|
-|#34 CSV 出力|3|`GET /questions`、`GET /exports/operation-logs.csv`、`GET /exports/questions.csv`|
-||**51**||
-
-API を持たない Issue：#14 キャンバス、#15 選択、#16 レイヤーパネル、#19 プロパティパネル、#20 デザイン画面、#22 ペースト（#18 の取り込み API を呼ぶ）、#25 プロトタイプ、#35 通しテスト。
+- ログはバッファにためて、まとめて `insert` する（#13）。
+- 画面を離れるとき（`visibilitychange` で `hidden` になったとき）は、残りを送り切る。`sendBeacon` は認証のヘッダーを付けられないので使わない。代わりに、`fetch` に `keepalive: true` を付けたログ専用のクライアント（`createClient(url, key, { global: { fetch } })`）で送る。`keepalive` は1回あたり 64KB までなので、分けて送る。
+- `event_type` の一覧と `payload` の形は #6 で決め、`front/src/domain` に定義する。
 
 ---
 
-## 7. 未決事項
+## 7. データアクセスの一覧と担当 Issue
 
-- **被験者の認証方法**（§1.5）：ID の入力だけでよいか。#6 で確定する。
-- **被験者に見せる範囲**（§1.6）：2条件で何を揃えるか。#7 で確定する。
-- **取り込み直し**（`PUT /api/pages/{id}/import`）：ノードの ID を保つか、作り直すか。作り直すと、実験を始めたあとのログの `target_node_id` が `null` になる（`db-schema.md` §5）。#5 で決める。
-- **担当の追加**：研究者の認証（`GET /me`）とエラーの形の置き換えは #11、`keepalive` を使ったログ送信は #13 の作業になる。それぞれの Issue の本文にも追記する。
+「被験者」列が ○ のものは、被験者のログインでも使える（§4 の範囲に限る）。
+
+### 7.1 認証・ユーザー
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`AuthRepository.signInResearcher`|`auth.signInWithPassword`|`POST /auth/v1/token`||#11|
+|`AuthRepository.signOut`|`auth.signOut`|`POST /auth/v1/logout`|○|#11|
+|`UserRepository.getCurrent`|`from('users').select().eq('auth_user_id', uid).single()`|`GET /rest/v1/users`|○|#11|
+
+### 7.2 プロジェクト・GUI・ページ
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`ProjectRepository.list`|`from('projects').select()`|`GET /rest/v1/projects`||#17|
+|`ProjectRepository.get`|`from('projects').select().eq('id', id).single()`|`GET /rest/v1/projects`|○|#17|
+|`ProjectRepository.create`|`from('projects').insert()`|`POST /rest/v1/projects`||#17|
+|`ProjectRepository.update`|`from('projects').update().eq('id', id)`|`PATCH /rest/v1/projects`||#17|
+|`ProjectRepository.delete`|`from('projects').delete().eq('id', id)`|`DELETE /rest/v1/projects`||#17|
+|`GuiRepository.listByProject`|`from('guis').select('*, nodes(id, layer_name)').eq('project_id', id).eq('nodes.layer_type', 'page')`|`GET /rest/v1/guis`|○|#17|
+|`GuiRepository.create`|`from('guis').insert()`|`POST /rest/v1/guis`||#17|
+|`GuiRepository.update`|`from('guis').update().eq('id', id)`|`PATCH /rest/v1/guis`||#17|
+|`GuiRepository.delete`|`from('guis').delete().eq('id', id)`|`DELETE /rest/v1/guis`||#17|
+|`GuiRepository.deletePage`|`from('nodes').delete().eq('id', id).eq('layer_type', 'page')`|`DELETE /rest/v1/nodes`||#17|
+
+### 7.3 取り込みと GUI の構造
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`GuiTreeRepository.importPage`|`rpc('import_page')`|`POST /rest/v1/rpc/import_page`||#18|
+|`GuiTreeRepository.reimportPage`|`rpc('reimport_page')`|`POST /rest/v1/rpc/reimport_page`||#18|
+|`GuiTreeRepository.getTree`|`rpc('get_gui_tree')`|`POST /rest/v1/rpc/get_gui_tree`|○|#18|
+|`GuiTreeRepository.updatePagePosition`|`rpc('update_page_position')`|`POST /rest/v1/rpc/update_page_position`||#23|
+
+### 7.4 状態遷移リンクと属性
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`LinkRepository.create`|`rpc('create_link')`|`POST /rest/v1/rpc/create_link`||#24|
+|`LinkRepository.update`|`from('links').update().eq('id', id)`|`PATCH /rest/v1/links`||#24|
+|`LinkRepository.delete`|`from('links').delete().eq('id', id)`|`DELETE /rest/v1/links`||#24|
+|`AttributeRepository.create`|`from('attributes').insert()`（`source = 'manual'`）|`POST /rest/v1/attributes`||#24|
+|`AttributeRepository.update`|`from('attributes').update().eq('id', id)`|`PATCH /rest/v1/attributes`||#24|
+|`AttributeRepository.delete`|`from('attributes').delete().eq('id', id)`|`DELETE /rest/v1/attributes`||#24|
+
+属性のリポジトリは、リンクの属性（#24）と設計根拠の入力（#27）の両方で使うので、先に実装する #24 が担当する。#27 はこれを呼ぶ。
+
+### 7.5 設計時の判断
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`DesignDecisionRepository.listByGui`|`rpc('get_design_decisions')`|`POST /rest/v1/rpc/get_design_decisions`|○（構造型のみ）|#26|
+|`DesignDecisionRepository.create`|`from('design_decisions').insert()`|`POST /rest/v1/design_decisions`||#27|
+|`DesignDecisionRepository.update`|`from('design_decisions').update().eq('id', id)`|`PATCH /rest/v1/design_decisions`||#27|
+|`DesignDecisionRepository.delete`|`from('design_decisions').delete().eq('id', id)`|`DELETE /rest/v1/design_decisions`||#27|
+
+### 7.6 要件定義書
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`RequirementDocumentRepository.listByProject`|`from('requirement_documents').select().eq('project_id', id)`|`GET /rest/v1/requirement_documents`|○|#21|
+|`RequirementDocumentRepository.get`|`from('requirement_documents').select().eq('id', id).single()`|`GET /rest/v1/requirement_documents`|○|#21|
+|`RequirementDocumentRepository.create`|`from('requirement_documents').insert()`|`POST /rest/v1/requirement_documents`||#21|
+|`RequirementDocumentRepository.update`|`from('requirement_documents').update().eq('id', id)`|`PATCH /rest/v1/requirement_documents`||#21|
+|`RequirementDocumentRepository.delete`|`from('requirement_documents').delete().eq('id', id)`|`DELETE /rest/v1/requirement_documents`||#21|
+
+### 7.7 時系列データ
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`TimelineEventRepository.importEvents`|`rpc('import_timeline_events')`|`POST /rest/v1/rpc/import_timeline_events`||#28|
+|`TimelineEventRepository.deleteAll`|`from('timeline_events').delete().eq('project_id', id)`|`DELETE /rest/v1/timeline_events`||#28|
+|`TimelineEventRepository.listByProject`|`from('timeline_events').select().eq('project_id', id).order('step_index')`|`GET /rest/v1/timeline_events`|○（時系列のみ）|#29|
+
+### 7.8 被験者とセッション
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`ParticipantRepository.list`|`from('users').select().eq('role', 'participant')`|`GET /rest/v1/users`||#30|
+|`ParticipantRepository.create`|`from('users').insert()`（複数まとめて）|`POST /rest/v1/users`||#30|
+|`ParticipantRepository.delete`|`from('users').delete().eq('id', id)`|`DELETE /rest/v1/users`||#30|
+|`SessionRepository.assign`|`rpc('assign_sessions')`|`POST /rest/v1/rpc/assign_sessions`||#30|
+|`SessionRepository.list`|`from('sessions').select()`|`GET /rest/v1/sessions`||#30|
+|`SessionRepository.delete`|`from('sessions').delete().eq('id', id)`|`DELETE /rest/v1/sessions`||#30|
+|`AuthRepository.signInParticipant`|`auth.signInAnonymously` → `rpc('claim_participant')`|`POST /auth/v1/signup`、`POST /rest/v1/rpc/claim_participant`|○|#30|
+|`SessionRepository.listMine`|`from('sessions').select()`（RLS で自分の分だけ返る）|`GET /rest/v1/sessions`|○|#30|
+|`SessionRepository.start`|`rpc('start_session')`|`POST /rest/v1/rpc/start_session`|○|#33|
+|`SessionRepository.end`|`rpc('end_session')`|`POST /rest/v1/rpc/end_session`|○|#33|
+
+### 7.9 操作ログ
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`OperationLogRepository.insertMany`|`from('operation_logs').insert(logs)`|`POST /rest/v1/operation_logs`|○|#13|
+
+### 7.10 質問と回答
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`QuestionRepository.create`|`from('questions').insert()`|`POST /rest/v1/questions`|○|#31|
+|`QuestionRepository.listBySession`|`from('questions').select('*, answers(*)').eq('session_id', id)`|`GET /rest/v1/questions`|○|#32|
+|`AnswerRepository.save`|`from('answers').upsert({ … }, { onConflict: 'question_id' })`|`POST /rest/v1/answers`|○|#32|
+|`QuestionRepository.listForResearcher`|`from('questions').select('*, answers(*), sessions(*)')`（`project_id`・`session_id` で絞り込み）|`GET /rest/v1/questions`||#34|
+
+質問を送信後に編集できるかは #6 で決める。編集できる場合は `QuestionRepository.update` を #31 に追加する。
+
+### 7.11 CSV 出力
+
+CSV はブラウザで作ってダウンロードさせる（バックエンドがないため）。
+
+|リポジトリのメソッド|Supabase の呼び方|HTTP|被験者|担当|
+|---|---|---|:-:|---|
+|`ExportRepository.fetchOperationLogs`|`from('operation_logs').select().order('occurred_at').range(from, to)`（1000行ずつ読む）|`GET /rest/v1/operation_logs`||#34|
+
+CSV への変換とダウンロードは `front/src/infrastructure/csv`（#34）で行う。質問と回答の CSV は `QuestionRepository.listForResearcher` の結果から作る。
+
+### 7.12 担当ごとの数
+
+|担当|数|
+|---|:-:|
+|#11 Supabase クライアントと infrastructure 層の基盤|3|
+|#13 操作ログの記録基盤|1|
+|#17 プロジェクトとページの管理|10|
+|#18 GUI 成果物のインポート|3|
+|#21 要件定義書の登録と閲覧|5|
+|#23 ページ層の移動|1|
+|#24 状態遷移リンクの作成|6|
+|#26 設計根拠の表示|1|
+|#27 設計根拠の入力|3|
+|#28 時系列データの取り込み|2|
+|#29 時系列ビュー|1|
+|#30 被験者 ID と検証パターンの割り当て|8|
+|#31 質問の作成と送信|1|
+|#32 質問への回答|2|
+|#33 被験者セッションの画面フロー|2|
+|#34 CSV 出力|2|
+|**計**|**51**|
+
+データアクセスを持たない Issue：#14 キャンバス、#15 選択、#16 レイヤーパネル、#19 プロパティパネル、#20 デザイン画面、#25 プロトタイプ、#35 通しテスト。
+
+---
+
+## 8. 未決事項
+
+- **被験者のログイン方法**（§3）：匿名ログイン＋ID とアクセスコードでよいか。#6 で確定する。
+- **被験者に見せる範囲**（§4.2）：2条件で何をそろえるか。#7 で確定する。
+- **取り込み直し**（`reimport_page`）：ノードの ID を保つか、作り直すか。作り直すと、実験を始めたあとのログの `target_node_id` が `null` になる（`db-schema.md` §5）。#5 で決める。

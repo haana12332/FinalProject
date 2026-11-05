@@ -45,7 +45,8 @@ erDiagram
 
     users {
         uuid id PK
-        uuid auth_user_id UK "研究者のみ。auth.users.id"
+        uuid auth_user_id UK "auth.users.id"
+        text access_code_hash "被験者のみ。アクセスコードのハッシュ"
         text name
         user_roles role
         timestamptz created_at
@@ -202,7 +203,8 @@ erDiagram
 |列|型|NULL|既定値|説明|
 |---|---|---|---|---|
 |id|uuid|×|`gen_random_uuid()`|主キー|
-|auth_user_id|uuid|○||Supabase Auth のユーザー ID。研究者のみ持つ。一意|
+|auth_user_id|uuid|○||Supabase Auth のユーザー ID。一意。研究者は seed で入れる。被験者はログインのとき（`claim_participant`）に入る|
+|access_code_hash|text|○||被験者のアクセスコードのハッシュ（`pgcrypto` の `crypt()`）。研究者は `null`|
 |name|text|×||表示名。被験者は実験用の ID（例：`P01`）|
 |role|user_roles|×||`researcher` / `participant`|
 |created_at|timestamptz|×|`now()`||
@@ -274,7 +276,7 @@ erDiagram
 |node_id|uuid|○||持ち主のノード。`nodes.id`|
 |link_id|uuid|○||持ち主のリンク。`links.id`|
 |attribute_type|attribute_types|×||属性の種類（`docs/domain.md`）|
-|value|jsonb|○||値。形は `attribute_type` ごとに決まる（検証は `packages/domain` の zod スキーマで行う）。値なしの属性は `null`|
+|value|jsonb|○||値。形は `attribute_type` ごとに決まる（検証は `front/src/domain` の zod スキーマで行う）。値なしの属性は `null`|
 |source|attribute_sources|×||`figma` / `manual`|
 |created_at / updated_at|timestamptz|×|`now()`||
 
@@ -308,7 +310,7 @@ erDiagram
 |---|---|---|---|---|
 |id|uuid|×|`gen_random_uuid()`|主キー|
 |session_id|uuid|×||`sessions.id`|
-|event_type|text|×||イベントの種類（一覧は #6 で決め、`packages/domain` で定義する）|
+|event_type|text|×||イベントの種類（一覧は #6 で決め、`front/src/domain` で定義する）|
 |target_node_id|uuid|○||操作の対象のノード。`nodes.id`|
 |payload|jsonb|×|`'{}'`|イベントごとの詳細（ズーム倍率、画面名など）|
 |occurred_at|timestamptz|×||操作が起きた時刻（ブラウザの時刻）|
@@ -355,7 +357,7 @@ erDiagram
 |determine_types|`docs/domain.md` の DetermineTypes と同じ（12種）|
 |methods|timeline, structural|
 
-値の追加は、マイグレーションで `alter type ... add value` を行う。値の一覧は `docs/domain.md` と `packages/domain` と常に一致させる。
+値の追加は、マイグレーションで `alter type ... add value` を行う。値の一覧は `docs/domain.md` と `front/src/domain` と常に一致させる。
 
 ---
 
@@ -401,7 +403,7 @@ erDiagram
 - ページは他のノードの子にならない（§4.1 の CHECK 制約）。ページの直下に有機体・分子・原子を置くことはできず、必ずテンプレートを挟む。
 - 親子は同じ GUI（`gui_id`）に属する。
 
-**保証の方法**：親の行を参照する必要があるので、CHECK 制約ではなく **DB のトリガー** で強制する。あわせて `packages/domain`（#9）にも同じ規則を置き、SVG の取り込み（#18）では、保存する前に違反したレイヤー名と理由をエラーとして表示する。
+**保証の方法**：親の行を参照する必要があるので、CHECK 制約ではなく **DB のトリガー** で強制する。あわせて `front/src/domain`（#9）にも同じ規則を置き、SVG の取り込み（#18）では、保存する前に違反したレイヤー名と理由をエラーとして表示する。
 
 ```sql
 create function check_node_hierarchy() returns trigger as $$
@@ -417,7 +419,8 @@ begin
   from nodes where id = new.parent_node_id;
 
   if parent_gui <> new.gui_id then
-    raise exception '親子のノードは同じ GUI に属する必要があります';
+    raise exception '親子のノードは同じ GUI に属する必要があります'
+      using errcode = 'DR001';
   end if;
 
   if not (
@@ -426,7 +429,8 @@ begin
     or (parent_layer = 'organism' and new.layer_type in ('molecule', 'atom'))
     or (parent_layer = 'molecule' and new.layer_type = 'atom')
   ) then
-    raise exception '% の下に % は置けません', parent_layer, new.layer_type;
+    raise exception '% の下に % は置けません', parent_layer, new.layer_type
+      using errcode = 'DR001';
   end if;
 
   return new;
@@ -442,7 +446,7 @@ create trigger nodes_check_hierarchy
 
 ### 4.3 DB では保証せず、アプリで検証するもの
 
-DB の制約では書きにくいものは、`packages/domain`（#9）の関数で、フロントエンドとバックエンドの両方で検証する。
+DB の制約では書きにくいものは、`front/src/domain`（#9）の関数で、保存する前に検証する。RLS や RPC 関数の中で確認できるものは、そちらでも二重に守る（`docs/api.md`）。
 
 - `attribute_type` が、ノードの `node_kind`（と `layer_type`）に許されたものか（不変条件2）
 - `value` の形が `attribute_type` に合っているか（不変条件3）
@@ -492,12 +496,12 @@ DB の制約では書きにくいものは、`packages/domain`（#9）の関数�
 
 ## 7. RLS（Row Level Security）の方針
 
-研究用なので最小限にする。
+バックエンドは作らず、フロントエンドから Supabase に直接アクセスする（[`docs/api.md`](./api.md)）。ブラウザに渡すのは anon キーだけなので、**誰がどの行を読み書きできるかは、すべて RLS で守る。**
 
-1. **すべてのテーブルで RLS を有効にし、ポリシーは作らない。** これで、ブラウザから Supabase に直接アクセスしても、どのテーブルも読み書きできない。
-2. **DB へのアクセスはバックエンド（Express）だけが行う。** バックエンドは `service_role` キーを使うので RLS の対象外になる。フロントエンドは必ずバックエンドの API を通す。
-3. `service_role` キーはバックエンドの環境変数にだけ置き、フロントエンドのコードや Git には入れない。
-4. 研究者のログインには Supabase Auth を使う。被験者は Auth を使わず、実験用の ID を入力してセッションを始める（詳細は #6）。
+1. すべてのテーブルで RLS を有効にする。ポリシーがない操作はすべて拒否される。
+2. ポリシーの一覧と補助関数（`is_researcher()`・`session_method()` など）は `docs/api.md` §4 で定義する。
+3. 研究者も被験者も Supabase Auth でログインし、`users.auth_user_id = auth.uid()` で `users` の行と結びつける（`docs/api.md` §3）。
+4. `service_role` キーは RLS をすべて無視できるので、フロントエンドのコード・環境変数・Git のどこにも置かない。マイグレーションや seed を流すときだけ、研究者の手元で使う。
 
 ---
 
