@@ -1,0 +1,73 @@
+body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2em;
+  padding: 100px;
+  font:
+    14px 'Lucida Grande',
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+body .users-column {
+  display: inline-block;
+  vertical-align: top;
+}
+
+body .users-column .column-header {
+  padding-bottom: 5px;
+  font-weight: 700;
+  font-size: 1.2em;
+}
+
+/** Add User Column **/
+
+body .add-user-col input {
+  margin-bottom: 10px;
+}
+
+body .add-user-col #add-user-btn {
+  margin-top: 2px;
+  margin-bottom: 10px;
+}
+
+/** Users Display Column **/
+
+.email-edit {
+  padding-bottom: 8px;
+}
+
+body .users-column .user-display-ele {
+  padding-bottom: 10px;
+}
+
+body .users-column .user-display-ele button {
+  margin-top: 2px;
+  margin-bottom: 10px;
+}
+
+body .users-column .user-display-ele .edit-view {
+  display: none;
+}
+
+/** Error Display Column **/
+
+body .errors-column {
+  flex: 1 1 320px;
+  min-width: 0;
+  color: #a61b29;
+}
+
+body .errors-column #error-display {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #e5a4aa;
+  border-radius: 6px;
+  background-color: #fff2f3;
+  color: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 65vh;
+  overflow-y: auto;
+}
