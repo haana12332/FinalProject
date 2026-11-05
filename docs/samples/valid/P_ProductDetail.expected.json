@@ -1,0 +1,1367 @@
+{
+  "nodes": [
+    {
+      "ref": "1",
+      "parent_ref": null,
+      "layer_name": "P_ProductDetail",
+      "layer_type": "page",
+      "node_kind": "frame",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 375
+        },
+        {
+          "attribute_type": "height",
+          "value": 640
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#FFFFFF",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "2",
+      "parent_ref": "1",
+      "layer_name": "T_ProductDetailTemplate",
+      "layer_type": "template",
+      "node_kind": "group",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 375
+        },
+        {
+          "attribute_type": "height",
+          "value": 640
+        }
+      ]
+    },
+    {
+      "ref": "3",
+      "parent_ref": "2",
+      "layer_name": "Template_Bg",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 375
+        },
+        {
+          "attribute_type": "height",
+          "value": 640
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#FFFFFF",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "4",
+      "parent_ref": "2",
+      "layer_name": "O_Header",
+      "layer_type": "organism",
+      "node_kind": "group",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 375
+        },
+        {
+          "attribute_type": "height",
+          "value": 64
+        }
+      ]
+    },
+    {
+      "ref": "5",
+      "parent_ref": "4",
+      "layer_name": "Header_Bg",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 375
+        },
+        {
+          "attribute_type": "height",
+          "value": 64
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#1E3A5F",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "6",
+      "parent_ref": "4",
+      "layer_name": "A_Logo",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 16
+        },
+        {
+          "attribute_type": "y",
+          "value": 20.64
+        },
+        {
+          "attribute_type": "width",
+          "value": 80.02
+        },
+        {
+          "attribute_type": "height",
+          "value": 20
+        }
+      ]
+    },
+    {
+      "ref": "7",
+      "parent_ref": "6",
+      "layer_name": "Logo_Text",
+      "layer_type": null,
+      "node_kind": "text",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 80.02
+        },
+        {
+          "attribute_type": "height",
+          "value": 20
+        },
+        {
+          "attribute_type": "characters",
+          "value": "生協ストア"
+        },
+        {
+          "attribute_type": "font_family",
+          "value": "Inter"
+        },
+        {
+          "attribute_type": "font_size",
+          "value": 16
+        },
+        {
+          "attribute_type": "font_weight",
+          "value": 700
+        },
+        {
+          "attribute_type": "letter_spacing",
+          "value": 0
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#FFFFFF",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "8",
+      "parent_ref": "4",
+      "layer_name": "M_SearchBox",
+      "layer_type": "molecule",
+      "node_kind": "group",
+      "sort_order": 2,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 112
+        },
+        {
+          "attribute_type": "y",
+          "value": 16
+        },
+        {
+          "attribute_type": "width",
+          "value": 212
+        },
+        {
+          "attribute_type": "height",
+          "value": 32
+        }
+      ]
+    },
+    {
+      "ref": "9",
+      "parent_ref": "8",
+      "layer_name": "A_SearchInput",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 176
+        },
+        {
+          "attribute_type": "height",
+          "value": 32
+        }
+      ]
+    },
+    {
+      "ref": "10",
+      "parent_ref": "9",
+      "layer_name": "SearchInput_Bg",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 176
+        },
+        {
+          "attribute_type": "height",
+          "value": 32
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#FFFFFF",
+              "opacity": 1
+            }
+          ]
+        },
+        {
+          "attribute_type": "corner_radius",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "ref": "11",
+      "parent_ref": "9",
+      "layer_name": "SearchInput_Placeholder",
+      "layer_type": null,
+      "node_kind": "text",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 10
+        },
+        {
+          "attribute_type": "y",
+          "value": 7.73
+        },
+        {
+          "attribute_type": "width",
+          "value": 60.02
+        },
+        {
+          "attribute_type": "height",
+          "value": 15
+        },
+        {
+          "attribute_type": "characters",
+          "value": "商品を検索"
+        },
+        {
+          "attribute_type": "font_family",
+          "value": "Inter"
+        },
+        {
+          "attribute_type": "font_size",
+          "value": 12
+        },
+        {
+          "attribute_type": "font_weight",
+          "value": 400
+        },
+        {
+          "attribute_type": "letter_spacing",
+          "value": 0
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#9AA5B1",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "12",
+      "parent_ref": "8",
+      "layer_name": "A_SearchButton",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 180
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 32
+        },
+        {
+          "attribute_type": "height",
+          "value": 32
+        }
+      ]
+    },
+    {
+      "ref": "13",
+      "parent_ref": "12",
+      "layer_name": "SearchButton_Bg",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 32
+        },
+        {
+          "attribute_type": "height",
+          "value": 32
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#F2A623",
+              "opacity": 1
+            }
+          ]
+        },
+        {
+          "attribute_type": "corner_radius",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "ref": "14",
+      "parent_ref": "12",
+      "layer_name": "SearchButton_Icon",
+      "layer_type": null,
+      "node_kind": "ellipse",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 9
+        },
+        {
+          "attribute_type": "y",
+          "value": 9
+        },
+        {
+          "attribute_type": "width",
+          "value": 12
+        },
+        {
+          "attribute_type": "height",
+          "value": 12
+        },
+        {
+          "attribute_type": "stroke",
+          "value": [
+            {
+              "color": "#FFFFFF",
+              "weight": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "15",
+      "parent_ref": "4",
+      "layer_name": "A_CartIcon",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 3,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 334
+        },
+        {
+          "attribute_type": "y",
+          "value": 20
+        },
+        {
+          "attribute_type": "width",
+          "value": 26
+        },
+        {
+          "attribute_type": "height",
+          "value": 24
+        }
+      ]
+    },
+    {
+      "ref": "16",
+      "parent_ref": "15",
+      "layer_name": "CartIcon_Shape",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 26
+        },
+        {
+          "attribute_type": "height",
+          "value": 24
+        },
+        {
+          "attribute_type": "stroke",
+          "value": [
+            {
+              "color": "#FFFFFF",
+              "weight": 2
+            }
+          ]
+        },
+        {
+          "attribute_type": "corner_radius",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "ref": "17",
+      "parent_ref": "2",
+      "layer_name": "O_Body",
+      "layer_type": "organism",
+      "node_kind": "group",
+      "sort_order": 2,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 16
+        },
+        {
+          "attribute_type": "y",
+          "value": 80
+        },
+        {
+          "attribute_type": "width",
+          "value": 343
+        },
+        {
+          "attribute_type": "height",
+          "value": 536
+        }
+      ]
+    },
+    {
+      "ref": "18",
+      "parent_ref": "17",
+      "layer_name": "A_ProductImage",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 343
+        },
+        {
+          "attribute_type": "height",
+          "value": 240
+        }
+      ]
+    },
+    {
+      "ref": "19",
+      "parent_ref": "18",
+      "layer_name": "ProductImage_Bg",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 343
+        },
+        {
+          "attribute_type": "height",
+          "value": 240
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#E4E7EB",
+              "opacity": 1
+            }
+          ]
+        },
+        {
+          "attribute_type": "corner_radius",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "ref": "20",
+      "parent_ref": "18",
+      "layer_name": "ProductImage_Label",
+      "layer_type": null,
+      "node_kind": "text",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 134
+        },
+        {
+          "attribute_type": "y",
+          "value": 111.73
+        },
+        {
+          "attribute_type": "width",
+          "value": 48.02
+        },
+        {
+          "attribute_type": "height",
+          "value": 15
+        },
+        {
+          "attribute_type": "characters",
+          "value": "商品画像"
+        },
+        {
+          "attribute_type": "font_family",
+          "value": "Inter"
+        },
+        {
+          "attribute_type": "font_size",
+          "value": 12
+        },
+        {
+          "attribute_type": "font_weight",
+          "value": 400
+        },
+        {
+          "attribute_type": "letter_spacing",
+          "value": 0
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#7B8794",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "21",
+      "parent_ref": "17",
+      "layer_name": "A_ProductName",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 258.09
+        },
+        {
+          "attribute_type": "width",
+          "value": 180
+        },
+        {
+          "attribute_type": "height",
+          "value": 21
+        }
+      ]
+    },
+    {
+      "ref": "22",
+      "parent_ref": "21",
+      "layer_name": "ProductName_Text",
+      "layer_type": null,
+      "node_kind": "text",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 180
+        },
+        {
+          "attribute_type": "height",
+          "value": 21
+        },
+        {
+          "attribute_type": "characters",
+          "value": "大学ロゴ入りパーカー"
+        },
+        {
+          "attribute_type": "font_family",
+          "value": "Inter"
+        },
+        {
+          "attribute_type": "font_size",
+          "value": 18
+        },
+        {
+          "attribute_type": "font_weight",
+          "value": 700
+        },
+        {
+          "attribute_type": "letter_spacing",
+          "value": 0
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#1F2933",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "23",
+      "parent_ref": "17",
+      "layer_name": "A_Price",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 2,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 289.55
+        },
+        {
+          "attribute_type": "width",
+          "value": 70.38
+        },
+        {
+          "attribute_type": "height",
+          "value": 24
+        }
+      ]
+    },
+    {
+      "ref": "24",
+      "parent_ref": "23",
+      "layer_name": "Price_Text",
+      "layer_type": null,
+      "node_kind": "text",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 70.38
+        },
+        {
+          "attribute_type": "height",
+          "value": 24
+        },
+        {
+          "attribute_type": "characters",
+          "value": "¥4,800"
+        },
+        {
+          "attribute_type": "font_family",
+          "value": "Inter"
+        },
+        {
+          "attribute_type": "font_size",
+          "value": 20
+        },
+        {
+          "attribute_type": "font_weight",
+          "value": 700
+        },
+        {
+          "attribute_type": "letter_spacing",
+          "value": 0
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#C62828",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "25",
+      "parent_ref": "17",
+      "layer_name": "M_QuantitySelector",
+      "layer_type": "molecule",
+      "node_kind": "group",
+      "sort_order": 3,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 334
+        },
+        {
+          "attribute_type": "width",
+          "value": 152
+        },
+        {
+          "attribute_type": "height",
+          "value": 40
+        }
+      ]
+    },
+    {
+      "ref": "26",
+      "parent_ref": "25",
+      "layer_name": "A_DecrementButton",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 40
+        },
+        {
+          "attribute_type": "height",
+          "value": 40
+        }
+      ]
+    },
+    {
+      "ref": "27",
+      "parent_ref": "26",
+      "layer_name": "DecrementButton_Bg",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 40
+        },
+        {
+          "attribute_type": "height",
+          "value": 40
+        },
+        {
+          "attribute_type": "stroke",
+          "value": [
+            {
+              "color": "#9AA5B1",
+              "weight": 1
+            }
+          ]
+        },
+        {
+          "attribute_type": "corner_radius",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "ref": "28",
+      "parent_ref": "26",
+      "layer_name": "DecrementButton_Label",
+      "layer_type": null,
+      "node_kind": "text",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 15
+        },
+        {
+          "attribute_type": "y",
+          "value": 8.09
+        },
+        {
+          "attribute_type": "width",
+          "value": 11.92
+        },
+        {
+          "attribute_type": "height",
+          "value": 21
+        },
+        {
+          "attribute_type": "characters",
+          "value": "−"
+        },
+        {
+          "attribute_type": "font_family",
+          "value": "Inter"
+        },
+        {
+          "attribute_type": "font_size",
+          "value": 18
+        },
+        {
+          "attribute_type": "font_weight",
+          "value": 400
+        },
+        {
+          "attribute_type": "letter_spacing",
+          "value": 0
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#1F2933",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "29",
+      "parent_ref": "25",
+      "layer_name": "A_QuantityValue",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 48
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 56
+        },
+        {
+          "attribute_type": "height",
+          "value": 40
+        }
+      ]
+    },
+    {
+      "ref": "30",
+      "parent_ref": "29",
+      "layer_name": "QuantityValue_Bg",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 56
+        },
+        {
+          "attribute_type": "height",
+          "value": 40
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#F5F7FA",
+              "opacity": 1
+            }
+          ]
+        },
+        {
+          "attribute_type": "corner_radius",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "ref": "31",
+      "parent_ref": "29",
+      "layer_name": "QuantityValue_Text",
+      "layer_type": null,
+      "node_kind": "text",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 24
+        },
+        {
+          "attribute_type": "y",
+          "value": 8.64
+        },
+        {
+          "attribute_type": "width",
+          "value": 6.52
+        },
+        {
+          "attribute_type": "height",
+          "value": 20
+        },
+        {
+          "attribute_type": "characters",
+          "value": "1"
+        },
+        {
+          "attribute_type": "font_family",
+          "value": "Inter"
+        },
+        {
+          "attribute_type": "font_size",
+          "value": 16
+        },
+        {
+          "attribute_type": "font_weight",
+          "value": 400
+        },
+        {
+          "attribute_type": "letter_spacing",
+          "value": 0
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#1F2933",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "32",
+      "parent_ref": "25",
+      "layer_name": "A_IncrementButton",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 2,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 112
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 40
+        },
+        {
+          "attribute_type": "height",
+          "value": 40
+        }
+      ]
+    },
+    {
+      "ref": "33",
+      "parent_ref": "32",
+      "layer_name": "IncrementButton_Bg",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 40
+        },
+        {
+          "attribute_type": "height",
+          "value": 40
+        },
+        {
+          "attribute_type": "stroke",
+          "value": [
+            {
+              "color": "#9AA5B1",
+              "weight": 1
+            }
+          ]
+        },
+        {
+          "attribute_type": "corner_radius",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "ref": "34",
+      "parent_ref": "32",
+      "layer_name": "IncrementButton_Label",
+      "layer_type": null,
+      "node_kind": "text",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 13
+        },
+        {
+          "attribute_type": "y",
+          "value": 8.09
+        },
+        {
+          "attribute_type": "width",
+          "value": 11.92
+        },
+        {
+          "attribute_type": "height",
+          "value": 21
+        },
+        {
+          "attribute_type": "characters",
+          "value": "+"
+        },
+        {
+          "attribute_type": "font_family",
+          "value": "Inter"
+        },
+        {
+          "attribute_type": "font_size",
+          "value": 18
+        },
+        {
+          "attribute_type": "font_weight",
+          "value": 400
+        },
+        {
+          "attribute_type": "letter_spacing",
+          "value": 0
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#1F2933",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "35",
+      "parent_ref": "17",
+      "layer_name": "A_AddToCartButton",
+      "layer_type": "atom",
+      "node_kind": "group",
+      "sort_order": 4,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 480
+        },
+        {
+          "attribute_type": "width",
+          "value": 343
+        },
+        {
+          "attribute_type": "height",
+          "value": 56
+        }
+      ]
+    },
+    {
+      "ref": "36",
+      "parent_ref": "35",
+      "layer_name": "AddToCartButton_Bg",
+      "layer_type": null,
+      "node_kind": "rectangle",
+      "sort_order": 0,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 0
+        },
+        {
+          "attribute_type": "y",
+          "value": 0
+        },
+        {
+          "attribute_type": "width",
+          "value": 343
+        },
+        {
+          "attribute_type": "height",
+          "value": 56
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#F2A623",
+              "opacity": 1
+            }
+          ]
+        },
+        {
+          "attribute_type": "corner_radius",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "ref": "37",
+      "parent_ref": "35",
+      "layer_name": "AddToCartButton_Label",
+      "layer_type": null,
+      "node_kind": "text",
+      "sort_order": 1,
+      "attributes": [
+        {
+          "attribute_type": "x",
+          "value": 116
+        },
+        {
+          "attribute_type": "y",
+          "value": 16.64
+        },
+        {
+          "attribute_type": "width",
+          "value": 112.02
+        },
+        {
+          "attribute_type": "height",
+          "value": 20
+        },
+        {
+          "attribute_type": "characters",
+          "value": "カートに入れる"
+        },
+        {
+          "attribute_type": "font_family",
+          "value": "Inter"
+        },
+        {
+          "attribute_type": "font_size",
+          "value": 16
+        },
+        {
+          "attribute_type": "font_weight",
+          "value": 700
+        },
+        {
+          "attribute_type": "letter_spacing",
+          "value": 0
+        },
+        {
+          "attribute_type": "fill",
+          "value": [
+            {
+              "color": "#FFFFFF",
+              "opacity": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

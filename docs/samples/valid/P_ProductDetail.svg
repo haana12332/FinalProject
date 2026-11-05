@@ -1,0 +1,62 @@
+<svg width="375" height="640" viewBox="0 0 375 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="P_ProductDetail" clip-path="url(#clip0_680_277)">
+<rect width="375" height="640" fill="white"/>
+<g id="T_ProductDetailTemplate">
+<path id="Template_Bg" d="M375 0H0V640H375V0Z" fill="white"/>
+<g id="O_Header">
+<path id="Header_Bg" d="M375 0H0V64H375V0Z" fill="#1E3A5F"/>
+<g id="A_Logo">
+<text id="Logo_Text" fill="white" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="16" font-weight="bold" letter-spacing="0em"><tspan x="16" y="36.6365">&#x751f;&#x5354;&#x30b9;&#x30c8;&#x30a2;</tspan></text>
+</g>
+<g id="M_SearchBox">
+<g id="A_SearchInput">
+<path id="SearchInput_Bg" d="M282 16H118C114.686 16 112 18.6863 112 22V42C112 45.3137 114.686 48 118 48H282C285.314 48 288 45.3137 288 42V22C288 18.6863 285.314 16 282 16Z" fill="white"/>
+<text id="SearchInput_Placeholder" fill="#9AA5B1" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="122" y="35.7274">&#x5546;&#x54c1;&#x3092;&#x691c;&#x7d22;</tspan></text>
+</g>
+<g id="A_SearchButton">
+<path id="SearchButton_Bg" d="M318 16H298C294.686 16 292 18.6863 292 22V42C292 45.3137 294.686 48 298 48H318C321.314 48 324 45.3137 324 42V22C324 18.6863 321.314 16 318 16Z" fill="#F2A623"/>
+<path id="SearchButton_Icon" d="M313 31C313 34.3137 310.314 37 307 37C303.686 37 301 34.3137 301 31C301 27.6863 303.686 25 307 25C310.314 25 313 27.6863 313 31Z" stroke-width="2" stroke="white"/>
+</g>
+</g>
+<g id="A_CartIcon">
+<path id="CartIcon_Shape" d="M338 20H356C358.209 20 360 21.7909 360 24V40C360 42.2091 358.209 44 356 44H338C335.791 44 334 42.2091 334 40V24C334 21.7909 335.791 20 338 20Z" stroke-width="2" stroke="white"/>
+</g>
+</g>
+<g id="O_Body">
+<g id="A_ProductImage">
+<path id="ProductImage_Bg" d="M351 80H24C19.5817 80 16 83.5817 16 88V312C16 316.418 19.5817 320 24 320H351C355.418 320 359 316.418 359 312V88C359 83.5817 355.418 80 351 80Z" fill="#E4E7EB"/>
+<text id="ProductImage_Label" fill="#7B8794" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="150" y="203.727">&#x5546;&#x54c1;&#x753b;&#x50cf;</tspan></text>
+</g>
+<g id="A_ProductName">
+<text id="ProductName_Text" fill="#1F2933" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="18" font-weight="bold" letter-spacing="0em"><tspan x="16" y="355.09">&#x5927;&#x5b66;&#x30ed;&#x30b4;&#x5165;&#x308a;&#x30d1;&#x30fc;&#x30ab;&#x30fc;</tspan></text>
+</g>
+<g id="A_Price">
+<text id="Price_Text" fill="#C62828" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="20" font-weight="bold" letter-spacing="0em"><tspan x="16" y="388.546">&#xa5;4,800</tspan></text>
+</g>
+<g id="M_QuantitySelector">
+<g id="A_DecrementButton">
+<path id="DecrementButton_Bg" d="M22 414H50C53.3137 414 56 416.686 56 420V448C56 451.314 53.3137 454 50 454H22C18.6863 454 16 451.314 16 448V420C16 416.686 18.6863 414 22 414Z" stroke="#9AA5B1"/>
+<text id="DecrementButton_Label" fill="#1F2933" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="18" letter-spacing="0em"><tspan x="31" y="439.09">&#x2212;</tspan></text>
+</g>
+<g id="A_QuantityValue">
+<path id="QuantityValue_Bg" d="M114 414H70C66.6863 414 64 416.686 64 420V448C64 451.314 66.6863 454 70 454H114C117.314 454 120 451.314 120 448V420C120 416.686 117.314 414 114 414Z" fill="#F5F7FA"/>
+<text id="QuantityValue_Text" fill="#1F2933" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="16" letter-spacing="0em"><tspan x="88" y="438.636">1</tspan></text>
+</g>
+<g id="A_IncrementButton">
+<path id="IncrementButton_Bg" d="M134 414H162C165.314 414 168 416.686 168 420V448C168 451.314 165.314 454 162 454H134C130.686 454 128 451.314 128 448V420C128 416.686 130.686 414 134 414Z" stroke="#9AA5B1"/>
+<text id="IncrementButton_Label" fill="#1F2933" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="18" letter-spacing="0em"><tspan x="141" y="439.09">+</tspan></text>
+</g>
+</g>
+<g id="A_AddToCartButton">
+<path id="AddToCartButton_Bg" d="M351 560H24C19.5817 560 16 563.582 16 568V608C16 612.418 19.5817 616 24 616H351C355.418 616 359 612.418 359 608V568C359 563.582 355.418 560 351 560Z" fill="#F2A623"/>
+<text id="AddToCartButton_Label" fill="white" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="16" font-weight="bold" letter-spacing="0em"><tspan x="132" y="592.636">&#x30ab;&#x30fc;&#x30c8;&#x306b;&#x5165;&#x308c;&#x308b;</tspan></text>
+</g>
+</g>
+</g>
+</g>
+<defs>
+<clipPath id="clip0_680_277">
+<rect width="375" height="640" fill="white"/>
+</clipPath>
+</defs>
+</svg>
