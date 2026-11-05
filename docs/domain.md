@@ -317,25 +317,6 @@ classDiagram
 |letter_spacing|文字間隔（px）|`number`|text|
 |text_align|揃え|`"left"` / `"center"` / `"right"`|text|
 
-#### 設計上の属性（研究者が入力）
-
-|attribute_type|定義|値の形|対象|
-|---|---|---|---|
-|purpose|そのノード・リンクの目的|`string`|すべてのノード、リンク|
-|class_or_token|使っているクラス・デザイントークン|`{ "kind": "class" \| "token", "name": string }`|すべてのノード|
-|composition|下位オブジェクトの組み合わせ|値なし（子は `parent_node_id` から決まる）|frame / group|
-|target_device|想定デバイス|`{ "name": string, "width": number, "height": number }`|`layer_type = page` のノードのみ|
-|padding|内側の余白（SVG の書き出しでは失われるため手入力）|`{ "top", "right", "bottom", "left" }`（number）|frame|
-|gap|子同士の間隔（同上）|`number`|frame|
-|order|兄弟の中での並び順|値なし（`sort_order` から決まる）|すべて|
-|visibility|表示・非表示とその条件|`{ "initial": "visible" \| "hidden", "condition": string }`|すべて|
-|scroll_behavior|スクロール時の挙動|`"scroll"` / `"fixed"` / `"sticky"` / `"none"`|frame|
-|responsive|枠が伸縮したときの追従|`{ "horizontal": "fixed" \| "fill" \| "hug", "vertical": 同左 }`|すべて|
-|variant|状態（バリアント）とその発生条件|`{ "name": string, "condition": string }`|`layer_type` が organism / molecule / atom のノード|
-|input_format|入力の形式・必須か・初期値・最大長|`{ "type": string, "required": boolean, "default": string \| null, "max_length": number \| null }`|`layer_type = molecule` のノード|
-|selection_rule|選択の制約|`{ "mode": "single" \| "multiple", "min": number \| null, "max": number \| null, "default": string[] }`|`layer_type = molecule` のノード|
-|validation_rule|何を不正とするか|`string`|`layer_type = molecule` のノード|
-
 #### 状態遷移リンクの属性（研究者が入力）
 
 |attribute_type|定義|値の形|
