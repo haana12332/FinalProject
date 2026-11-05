@@ -20,7 +20,7 @@ Issue : [[決めること] DB スキーマ設計](https://github.com/haana12332/
 |セッション・操作ログ・質問・回答|DB（**案**）|被験者・セッションと外部キーで結び、CSV 出力（#34）を DB だけから行えるようにするため|
 |時系列データ|DB（**案**）|プロジェクトに紐づけるため。項目は #7 で決める|
 |画像ファイル（`image_ref` の参照先）|Supabase Storage|バイナリなので DB には入れない|
-|長い文章（Markdown）|DB の `text` 列|中身は文字列なので列にそのまま入る。ファイルと DB の同期が不要になる|
+|文章（概要・説明・判断の内容など）|DB の `text` 列（プレーンテキスト）|Markdown などの自由な書式は使わない。構造を持つ情報は、文章に埋め込まず、列・配列・`jsonb` に決まった形で保存する|
 
 **案** と書いたテーブル（§3.2）の列は、#6（実験運用仕様）と #7（時系列データの形式）で決まる内容に合わせて見直す。
 
@@ -118,7 +118,7 @@ erDiagram
         uuid id PK
         uuid attribute_id FK, UK
         determine_types determine_type
-        text comments "Markdown"
+        text comments "判断の内容"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -183,7 +183,7 @@ erDiagram
         integer step_index "時系列での順番"
         uuid target_node_id FK "対象がわかるとき"
         text action
-        text rationale "Markdown"
+        text rationale "理由"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -224,11 +224,11 @@ erDiagram
 |id|uuid|×|`gen_random_uuid()`|主キー|
 |project_id|uuid|×||`projects.id`|
 |name|text|×||要件書の名前|
-|summary|text|○||概要（Markdown）|
+|summary|text|○||概要|
 |todo|text[]|×|`'{}'`|やること|
 |notodo|text[]|×|`'{}'`|やらないこと|
-|dod|text|○||完了条件（Definition of Done、Markdown）|
-|comment|text|○||補足（Markdown）|
+|dod|text|○||完了条件（Definition of Done）|
+|comment|text|○||補足|
 |created_at / updated_at|timestamptz|×|`now()`||
 
 #### guis
@@ -238,7 +238,7 @@ erDiagram
 |id|uuid|×|`gen_random_uuid()`|主キー|
 |project_id|uuid|×||`projects.id`|
 |name|text|×||GUI 成果物の名前|
-|description|text|○||説明（Markdown）|
+|description|text|○||説明|
 |created_at / updated_at|timestamptz|×|`now()`||
 
 #### nodes
@@ -285,7 +285,7 @@ erDiagram
 |id|uuid|×|`gen_random_uuid()`|主キー|
 |attribute_id|uuid|×||紐づく属性。`attributes.id`。一意（属性と 1 対 1）|
 |determine_type|determine_types|×||設計時の判断型（12種）|
-|comments|text|○||判断の内容（Markdown）|
+|comments|text|○||判断の内容|
 |created_at / updated_at|timestamptz|×|`now()`||
 
 ### 3.2 実験の運用（案）
@@ -338,7 +338,7 @@ erDiagram
 |step_index|integer|×||時系列での順番|
 |target_node_id|uuid|○||対象のノード。`nodes.id`|
 |action|text|×||操作の内容|
-|rationale|text|○||理由（Markdown）|
+|rationale|text|○||理由|
 |created_at / updated_at|timestamptz|×|`now()`||
 
 列は #7 で決める形式に合わせて見直す。
@@ -377,7 +377,70 @@ erDiagram
 
 `nodes` の兄弟の一意制約は、`parent_node_id` が `null`（ページ同士）のとき PostgreSQL では重複とみなされない。ページ同士の順番も一意にする場合は `nulls not distinct` を付ける（PostgreSQL 15 以降）。
 
-### 4.2 DB では保証せず、アプリで検証するもの
+### 4.2 階層の制約（親子にできる層の組み合わせ）
+
+ノードの親子は、Atomic Design の層について次の組み合わせだけを許す。
+
+|親の layer_type|子にできる layer_type|
+|---|---|
+|page|template のみ|
+|template|organism、molecule、atom のみ|
+|organism|molecule、atom のみ|
+|molecule|atom のみ|
+|atom|子を持たない|
+
+|親 ＼ 子|page|template|organism|molecule|atom|
+|---|:-:|:-:|:-:|:-:|:-:|
+|page|×|○|×|×|×|
+|template|×|×|○|○|○|
+|organism|×|×|×|○|○|
+|molecule|×|×|×|×|○|
+|atom|×|×|×|×|×|
+
+- 子は、必ず親より下の層になる。同じ層同士の親子（有機体の中の有機体など）は作れない。
+- ページは他のノードの子にならない（§4.1 の CHECK 制約）。ページの直下に有機体・分子・原子を置くことはできず、必ずテンプレートを挟む。
+- 親子は同じ GUI（`gui_id`）に属する。
+
+**保証の方法**：親の行を参照する必要があるので、CHECK 制約ではなく **DB のトリガー** で強制する。あわせて `packages/domain`（#9）にも同じ規則を置き、SVG の取り込み（#18）では、保存する前に違反したレイヤー名と理由をエラーとして表示する。
+
+```sql
+create function check_node_hierarchy() returns trigger as $$
+declare
+  parent_layer layer_types;
+  parent_gui   uuid;
+begin
+  if new.parent_node_id is null then
+    return new;
+  end if;
+
+  select layer_type, gui_id into parent_layer, parent_gui
+  from nodes where id = new.parent_node_id;
+
+  if parent_gui <> new.gui_id then
+    raise exception '親子のノードは同じ GUI に属する必要があります';
+  end if;
+
+  if not (
+       (parent_layer = 'page'     and new.layer_type = 'template')
+    or (parent_layer = 'template' and new.layer_type in ('organism', 'molecule', 'atom'))
+    or (parent_layer = 'organism' and new.layer_type in ('molecule', 'atom'))
+    or (parent_layer = 'molecule' and new.layer_type = 'atom')
+  ) then
+    raise exception '% の下に % は置けません', parent_layer, new.layer_type;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger nodes_check_hierarchy
+  before insert or update of parent_node_id, layer_type, gui_id on nodes
+  for each row execute function check_node_hierarchy();
+```
+
+`layer_type` はレイヤー名の接頭辞から決まり、ツール上で手で変えることはない。そのため、検証するのは子のノードを追加・更新したときだけでよい。実際のマイグレーションは #10 で作る。
+
+### 4.3 DB では保証せず、アプリで検証するもの
 
 DB の制約では書きにくいものは、`packages/domain`（#9）の関数で、フロントエンドとバックエンドの両方で検証する。
 
@@ -385,7 +448,6 @@ DB の制約では書きにくいものは、`packages/domain`（#9）の関数�
 - `value` の形が `attribute_type` に合っているか（不変条件3）
 - `source = figma` になれるのは Figma 由来の属性だけか（不変条件5）
 - `determine_type` が、属性の `attribute_type` に対応するか（不変条件7）
-- 親子のノードが同じ `gui_id` に属しているか、親子の層の順序が正しいか（#5 で決める階層ルール）
 - `links` の元と先のノードが同じプロジェクトに属しているか
 - `sessions.participant_id` の `role` が `participant` か、`projects.user_id` の `role` が `researcher` か
 
