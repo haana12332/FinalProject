@@ -44,6 +44,12 @@ type SelectionActions = {
   drillUp: () => void
   /** 初期状態（template 層、選択なし）に戻す */
   reset: () => void
+  /**
+   * レイヤーパネルからの直接選択。
+   * selectedNodeId と currentLayer を同時に設定する。
+   * 'page' ノードを選択した場合は currentLayer を 'template' に正規化する。
+   */
+  selectAtLayer: (nodeId: string, layerType: LayerType | null) => void
 }
 
 const INITIAL_STATE: SelectionState = {
@@ -72,5 +78,11 @@ export const useSelectionStore = create<SelectionState & SelectionActions>(
     },
 
     reset: () => set(INITIAL_STATE),
+
+    selectAtLayer: (nodeId, layerType) => {
+      // 'page' は LAYER_DRILL_ORDER に含まれないため 'template' に正規化する
+      const layer = layerType === 'page' ? 'template' : layerType
+      set({ selectedNodeId: nodeId, currentLayer: layer })
+    },
   }),
 )
