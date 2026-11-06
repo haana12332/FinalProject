@@ -12,9 +12,10 @@ export type EventType =
   // キャンバス操作（#14）
   | 'canvas_zoom'
   | 'canvas_pan'
-  // オブジェクト選択（#15）
+  // オブジェクト選択・層移動（#15）
   | 'object_select'
   | 'object_deselect'
+  | 'layer_change'
   // レイヤーパネル（#16）
   | 'layer_expand'
   | 'layer_collapse'
@@ -38,6 +39,7 @@ export type EventPayloadMap = {
   canvas_pan: { x: number; y: number }
   object_select: { layer_type: string | null }
   object_deselect: Record<string, never>
+  layer_change: { from: string | null; to: string | null }
   layer_expand: { layer_name: string }
   layer_collapse: { layer_name: string }
   layer_select: { layer_name: string }
