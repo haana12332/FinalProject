@@ -16,6 +16,11 @@ type Props = {
    * nodeId: ヒットしたノードの ID（背景クリック時は null）
    */
   onNodeClick?: (nodeId: string | null) => void
+  /**
+   * ノードをダブルクリックしたときのコールバック。
+   * nodeId: ヒットしたノードの ID（背景ダブルクリック時は null）
+   */
+  onNodeDoubleClick?: (nodeId: string | null) => void
   /** デザインの幅（px）。デフォルト 375（モバイル） */
   designWidth?: number
   /** デザインの高さ（px）。デフォルト 640（モバイル） */
@@ -34,6 +39,7 @@ export function Canvas({
   roots,
   highlights = [],
   onNodeClick,
+  onNodeDoubleClick,
   designWidth = 375,
   designHeight = 640,
 }: Props) {
@@ -87,21 +93,39 @@ export function Canvas({
     handlePointerUp()
   }, [handlePointerUp])
 
+  /** SVG 上のクライアント座標 → キャンバス絶対座標に変換 */
+  const toCanvasCoords = useCallback(
+    (clientX: number, clientY: number): { cx: number; cy: number } | null => {
+      if (!svgRef.current) return null
+      const rect = svgRef.current.getBoundingClientRect()
+      return {
+        cx: (clientX - rect.left - transform.translateX) / transform.scale,
+        cy: (clientY - rect.top - transform.translateY) / transform.scale,
+      }
+    },
+    [transform],
+  )
+
   const onClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
       // ドラッグ後のクリックを無視（5px 以上移動したらパンとみなす）
       if (dragDistRef.current > 5) return
-      if (!svgRef.current) return
-
-      const rect = svgRef.current.getBoundingClientRect()
-      // クリック座標をキャンバス空間（絶対座標）に変換
-      const cx = (e.clientX - rect.left - transform.translateX) / transform.scale
-      const cy = (e.clientY - rect.top - transform.translateY) / transform.scale
-
-      const result = hitTest(roots, cx, cy)
+      const coords = toCanvasCoords(e.clientX, e.clientY)
+      if (!coords) return
+      const result = hitTest(roots, coords.cx, coords.cy)
       onNodeClick?.(result?.nodeId ?? null)
     },
-    [roots, transform, onNodeClick],
+    [roots, toCanvasCoords, onNodeClick],
+  )
+
+  const onDoubleClick = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      const coords = toCanvasCoords(e.clientX, e.clientY)
+      if (!coords) return
+      const result = hitTest(roots, coords.cx, coords.cy)
+      onNodeDoubleClick?.(result?.nodeId ?? null)
+    },
+    [roots, toCanvasCoords, onNodeDoubleClick],
   )
 
   const { scale, translateX, translateY } = transform
@@ -117,6 +141,7 @@ export function Canvas({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onClick={onClick}
+        onDoubleClick={onDoubleClick}
       >
         <g transform={`translate(${translateX},${translateY}) scale(${scale})`}>
           {/* デザインの背景（白） */}
