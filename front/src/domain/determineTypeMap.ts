@@ -71,5 +71,5 @@ export const ATTRIBUTE_TYPE_TO_DETERMINE_TYPES: Readonly<
       map.set(attrType, existing)
     }
   }
-  return Object.fromEntries(map) as Record<AttributeType, ReadonlyArray<DetermineType>>
+  return Object.fromEntries(map) as unknown as Record<AttributeType, ReadonlyArray<DetermineType>>
 })()

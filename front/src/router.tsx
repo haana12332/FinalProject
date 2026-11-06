@@ -1,9 +1,44 @@
-import { createBrowserRouter } from "react-router"
-
-import { ROUTES } from "./routes"
-import { HomePage, DesignPage } from "./presentation/pages"
+import { createBrowserRouter, Navigate } from 'react-router'
+import { AdminLayout } from './presentation/layouts/AdminLayout'
+import { DesignLayout } from './presentation/layouts/DesignLayout'
+import { SessionLayout } from './presentation/layouts/SessionLayout'
+import {
+  ProjectListPage,
+  GuiListPage,
+  AdminDesignPage,
+  ParticipantsPage,
+  SessionStartPage,
+  SessionDesignPage,
+} from './presentation/pages'
 
 export const router = createBrowserRouter([
-    { path: ROUTES.home, element: <HomePage /> },
-    { path: ROUTES.design, element: <DesignPage /> },
+  // / → /admin/projects にリダイレクト
+  { path: '/', element: <Navigate to="/admin/projects" replace /> },
+
+  // 研究者用
+  {
+    path: '/admin',
+    element: <AdminLayout />,
+    children: [
+      { index: true, element: <Navigate to="projects" replace /> },
+      { path: 'projects', element: <ProjectListPage /> },
+      { path: 'projects/:project_id', element: <GuiListPage /> },
+      { path: 'projects/:project_id/participants', element: <ParticipantsPage /> },
+    ],
+  },
+  {
+    path: '/admin/projects/:project_id/guis/:gui_id',
+    element: <DesignLayout />,
+    children: [{ index: true, element: <AdminDesignPage /> }],
+  },
+
+  // 被験者用
+  {
+    path: '/session',
+    element: <SessionLayout />,
+    children: [
+      { index: true, element: <SessionStartPage /> },
+      { path: ':session_id', element: <SessionDesignPage /> },
+    ],
+  },
 ])
