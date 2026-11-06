@@ -2,13 +2,22 @@ import { NavLink, Outlet, useParams } from 'react-router'
 import { paths } from '../../routes'
 import styles from './DesignLayout.module.css'
 
+type Props = {
+  /**
+   * サイドバーのレイヤーパネル領域に挿し込むコンテンツ。
+   * ページ側で <LayerPanel roots={...} /> を渡す。
+   * 省略時は空欄。
+   */
+  layerPanel?: React.ReactNode
+}
+
 /**
  * デザイン画面用レイアウト。
  * サイドバーがキャンバスに重なる（fixed）ため、
  * canvas 領域は full-width になる。
  * GUI の左右に設計根拠パネルを配置する予定（#20）。
  */
-export function DesignLayout() {
+export function DesignLayout({ layerPanel }: Props) {
   const { project_id } = useParams<{ project_id: string }>()
 
   return (
@@ -34,9 +43,9 @@ export function DesignLayout() {
             </NavLink>
           )}
         </nav>
-        {/* レイヤーパネルは #16 で追加する */}
-        <div className={styles.layerPanelPlaceholder}>
-          <span className={styles.placeholderLabel}>レイヤーパネル（#16）</span>
+        {/* レイヤーパネル（#16）: ページ側から roots を受け取って表示 */}
+        <div className={styles.layerPanelArea}>
+          {layerPanel}
         </div>
       </aside>
 
