@@ -247,7 +247,7 @@ erDiagram
 |gui_id|uuid|×||`guis.id`|
 |parent_node_id|uuid|○||親ノード。`nodes.id`。ページ（最上位）は `null`|
 |layer_name|text|×||Figma のレイヤー名（例：`O_ProductCard`）|
-|layer_type|layer_types|×||Atomic Design の層|
+|layer_type|layer_types|○||Atomic Design の層。図形（接頭辞なし）は `null`|
 |node_kind|node_kinds|×||Figma の図形の種類|
 |sort_order|integer|×||同じ親を持つ兄弟の中での順番（重なり順・レイヤーパネルの表示順）|
 |created_at / updated_at|timestamptz|×|`now()`||
@@ -367,7 +367,8 @@ erDiagram
 |attributes|`unique (node_id, attribute_type) where node_id is not null`|同じノードに同じ種類の属性は1行だけ（不変条件4）|
 |attributes|`unique (link_id, attribute_type) where link_id is not null`|同じリンクに同じ種類の属性は1行だけ（不変条件4）|
 |nodes|`unique (gui_id, parent_node_id, sort_order)`|兄弟の中で順番が重ならない|
-|nodes|`check ((layer_type = 'page') = (parent_node_id is null))`|親を持たないのはページだけ|
+|nodes|`check ((layer_type is not distinct from 'page') = (parent_node_id is null))`|親を持たないのはページだけ。`layer_type` が null（図形）のとき `= 'page'` の評価が null になり制約が効かなくなるため `is not distinct from` を使う|
+|nodes|`check ((layer_type is not null) = (node_kind in ('frame', 'group')))`|レイヤーの `node_kind` は `frame`/`group` のみ、図形（`layer_type` null）は `frame`/`group` 以外|
 |design_decisions|`unique (attribute_id)`|属性と判断は 1 対 1|
 |answers|`unique (question_id)`|質問と回答は 1 対 1|
 |sessions|`unique (participant_id, order_index)`|1人の被験者の中で順番が重ならない|
@@ -402,7 +403,7 @@ erDiagram
 **保証の方法**：親の行を参照する必要があるので、CHECK 制約ではなく **DB のトリガー** で強制する。あわせて `front/src/domain`（#9）にも同じ規則を置き、SVG の取り込み（#18）では、保存する前に違反したレイヤー名と理由をエラーとして表示する。
 
 ```sql
-create function check_node_hierarchy() returns trigger as $$
+create or replace function check_node_hierarchy() returns trigger as $$
 declare
   parent_layer layer_types;
   parent_gui   uuid;
@@ -419,6 +420,23 @@ begin
       using errcode = 'DR001';
   end if;
 
+  -- 子が図形（layer_type IS NULL）
+  if new.layer_type is null then
+    if parent_layer is null or parent_layer = 'page' then
+      raise exception '図形の親は template / organism / molecule / atom のどれかにしてください（現在: %）',
+        coalesce(parent_layer::text, '図形')
+        using errcode = 'DR001';
+    end if;
+    return new;
+  end if;
+
+  -- 親が図形（layer_type IS NULL）→ 子を持てない
+  if parent_layer is null then
+    raise exception '図形（%）は子ノードを持てません', new.layer_name
+      using errcode = 'DR001';
+  end if;
+
+  -- レイヤー同士の組み合わせ
   if not (
        (parent_layer = 'page'     and new.layer_type = 'template')
     or (parent_layer = 'template' and new.layer_type in ('organism', 'molecule', 'atom'))

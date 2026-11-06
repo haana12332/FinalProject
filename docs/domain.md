@@ -127,7 +127,7 @@ classDiagram
         gui_id: uuid FK
         parent_node_id: uuid FK
         layer_name: string
-        layer_type: LayerTypes
+        layer_type: LayerTypes | null
         node_kind: NodeKinds
         sort_order: integer
         created_at: timestamp
