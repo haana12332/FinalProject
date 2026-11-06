@@ -68,6 +68,9 @@ export {
   LAYER_PREFIXES,
 } from './layerUtils'
 
+// 操作ログのイベント型
+export type { EventType, EventPayloadMap, EventPayload } from './operationLogEvents'
+
 // 不変条件の検証関数
 export type { ValidationResult } from './invariants'
 export {
