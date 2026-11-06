@@ -75,7 +75,7 @@
 - GUI の属性は、列ではなく `Attributes` の1行として持つ（EAV：Entity-Attribute-Value）。
   - 設計時の判断（`DesignDecisions`）は属性に付き、制約は属性から属性への関係なので、**属性1つ1つが ID を持ち、外部キーで指せる**必要があるため。
 - ノードが持てる属性は、Atomic Design の層（`layer_type`）ではなく、**Figma の図形の種類（`node_kind`）で決まる**。例えば原子でも、テキストのものと四角形のものでは持てる属性がまったく違う。
-- 「どの `node_kind` にどの `attribute_type` があり、`value` がどんな形か」は、この節の表で定義する。実装では `packages/domain` にスキーマ（zod）として置き、フロントエンドとバックエンドの両方で同じ検証を行う。
+- 「どの `node_kind` にどの `attribute_type` があり、`value` がどんな形か」は、この節の表で定義する。実装では `front/src/domain` にスキーマ（zod）として置き、取り込み・入力・表示のすべてで同じ検証を行う。
 - 属性の値は `Attributes` にだけ持つ。`Nodes` や `Links` の列に同じ値を持たない（値が2か所にあると、片方だけ更新されてずれるため）。
 
 ### クラス図
