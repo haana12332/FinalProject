@@ -1,0 +1,72 @@
+{
+  "atom_has_layer_child.svg": [
+    {
+      "code": "hierarchy_violation",
+      "rule": "invalid_parent",
+      "layer_name": "A_Currency"
+    }
+  ],
+  "group_without_prefix.svg": [
+    {
+      "code": "naming_violation",
+      "rule": "group_without_prefix",
+      "layer_name": "Header"
+    }
+  ],
+  "invalid_characters.svg": [
+    {
+      "code": "naming_violation",
+      "rule": "invalid_characters",
+      "layer_name": "O_Header-Main"
+    }
+  ],
+  "missing_id.svg": [
+    {
+      "code": "naming_violation",
+      "rule": "missing_id",
+      "layer_name": null
+    }
+  ],
+  "multiple_pages.svg": [
+    {
+      "code": "naming_violation",
+      "rule": "multiple_pages",
+      "layer_name": "P_First, P_Second"
+    }
+  ],
+  "organism_in_organism.svg": [
+    {
+      "code": "hierarchy_violation",
+      "rule": "invalid_parent",
+      "layer_name": "O_Card"
+    }
+  ],
+  "page_child_not_template.svg": [
+    {
+      "code": "hierarchy_violation",
+      "rule": "invalid_parent",
+      "layer_name": "O_Header"
+    }
+  ],
+  "prefix_on_shape.svg": [
+    {
+      "code": "naming_violation",
+      "rule": "prefix_on_shape",
+      "layer_name": "A_HeaderBg"
+    }
+  ],
+  "root_not_page.svg": [
+    {
+      "code": "naming_violation",
+      "rule": "root_not_page",
+      "layer_name": "T_Sample"
+    }
+  ],
+  "shape_outside_layer.svg": [
+    {
+      "code": "hierarchy_violation",
+      "rule": "shape_outside_layer",
+      "layer_name": "Stray_Bg"
+    }
+  ]
+}
