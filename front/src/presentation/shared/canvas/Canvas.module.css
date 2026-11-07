@@ -16,3 +16,7 @@
 .panning {
   cursor: grabbing;
 }
+
+.pageDragging {
+  cursor: move;
+}

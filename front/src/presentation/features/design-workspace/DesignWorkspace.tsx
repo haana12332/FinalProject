@@ -99,6 +99,31 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
   const flatMap = currentRoot ? flattenNodes([currentRoot]) : new Map()
   const { handleNodeClick, handleNodeDoubleClick } = useCanvasSelection(flatMap)
 
+  // ---- ページ移動ハンドラ（researcher のみ、Issue #23） ----
+  const handlePageDragEnd = useCallback(
+    async (pageId: string, newX: number, newY: number) => {
+      if (!gui_id) return
+      const result = await repo.updatePagePosition(pageId, newX, newY)
+      if (result && 'code' in result) {
+        setImportError(result.message)
+        return
+      }
+      // 位置を DB に保存後、ツリーを再取得してストアを更新する
+      const tree = await repo.getTree(gui_id)
+      if ('code' in tree) {
+        setImportError(tree.message)
+      } else {
+        setTree(tree.gui_id, tree.nodes, tree.attributes)
+      }
+    },
+    [gui_id, repo, setTree],
+  )
+
+  // researcher モードで表示中のページのみドラッグ可能にする
+  const draggablePageIds = mode === 'researcher' && currentRoot
+    ? new Set([currentRoot.id])
+    : undefined
+
   // ---- インポートハンドラ（researcher のみ） ----
   const handleFileSelected = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,6 +245,8 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
             highlights={highlights}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
+            draggablePageIds={draggablePageIds}
+            onPageDragEnd={mode === 'researcher' ? handlePageDragEnd : undefined}
           />
         ) : (
           <div className={styles.placeholder}>
