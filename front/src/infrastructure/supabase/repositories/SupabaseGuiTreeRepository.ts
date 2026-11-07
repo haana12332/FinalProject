@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../types'
 import type { GuiTreeRepository, GuiTree } from '../../../application/repositories/GuiTreeRepository'
 import type { ImportPayload } from '../../../application/import/types'
-import type { Node, Attribute } from '../../../domain/entities'
+import type { Node, Attribute, Link } from '../../../domain/entities'
 import type { AppError } from '../../../application/AppError'
 import { toAppError } from '../toAppError'
 
@@ -10,6 +10,7 @@ type RpcResult = {
   gui_id: string
   nodes: Node[]
   attributes: Attribute[]
+  links?: Link[]
 } | null
 
 export class SupabaseGuiTreeRepository implements GuiTreeRepository {
@@ -30,6 +31,7 @@ export class SupabaseGuiTreeRepository implements GuiTreeRepository {
       gui_id: guiId,
       nodes: result?.nodes ?? [],
       attributes: result?.attributes ?? [],
+      links: [],
     }
   }
 
@@ -44,6 +46,7 @@ export class SupabaseGuiTreeRepository implements GuiTreeRepository {
       gui_id: result?.gui_id ?? '',
       nodes: result?.nodes ?? [],
       attributes: result?.attributes ?? [],
+      links: [],
     }
   }
 
@@ -66,6 +69,7 @@ export class SupabaseGuiTreeRepository implements GuiTreeRepository {
       gui_id: guiId,
       nodes: result?.nodes ?? [],
       attributes: result?.attributes ?? [],
+      links: result?.links ?? [],
     }
   }
 }

@@ -2,15 +2,16 @@
  * GUI ツリー（ノード＋属性）の取得・取り込みリポジトリ
  * svg-import-spec.md §6 / api.md §6.2
  */
-import type { Node, Attribute } from '../../domain/entities'
+import type { Node, Attribute, Link } from '../../domain/entities'
 import type { ImportPayload } from '../import/types'
 import type { AppError } from '../AppError'
 
-/** GUI に属する全ノード・属性をまとめた型（buildRenderTree の入力として使う） */
+/** GUI に属する全ノード・属性・リンクをまとめた型（buildRenderTree の入力として使う） */
 export type GuiTree = {
   gui_id: string
   nodes: Node[]
   attributes: Attribute[]
+  links: Link[]
 }
 
 export interface GuiTreeRepository {

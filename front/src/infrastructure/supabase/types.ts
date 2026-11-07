@@ -572,6 +572,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_link: {
+        Args: {
+          p_source_node_id: string
+          p_target_node_id: string
+          p_name: string
+          p_attributes?: Json
+        }
+        Returns: Json
+      }
       get_gui_tree: {
         Args: { p_gui_id: string }
         Returns: Json
