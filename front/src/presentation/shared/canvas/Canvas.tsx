@@ -49,6 +49,8 @@ type Props = {
   onLinkClick?: (linkId: string) => void
   /** 選択中のリンク id */
   selectedLinkId?: string | null
+  /** ポインター移動時にヒットしたノード ID を通知（プレビューモードのホバー用） */
+  onNodeHover?: (nodeId: string | null) => void
 }
 
 type PageDragState = {
@@ -84,6 +86,7 @@ export function Canvas({
   pageNames = new Map(),
   onLinkClick,
   selectedLinkId,
+  onNodeHover,
 }: Props) {
   const {
     transform,
@@ -180,9 +183,19 @@ export function Canvas({
       }
 
       handlePointerMove(e)
+
+      if (onNodeHover) {
+        const coords = toCanvasCoords(e.clientX, e.clientY)
+        const result = coords ? hitTest(roots, coords.cx, coords.cy) : null
+        onNodeHover(result?.nodeId ?? null)
+      }
     },
-    [handlePointerMove, transform.scale],
+    [handlePointerMove, transform.scale, onNodeHover, toCanvasCoords, roots],
   )
+
+  const onPointerLeave = useCallback(() => {
+    onNodeHover?.(null)
+  }, [onNodeHover])
 
   const onPointerUp = useCallback(() => {
     pointerDownClientRef.current = null
@@ -244,6 +257,7 @@ export function Canvas({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerLeave}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
       >

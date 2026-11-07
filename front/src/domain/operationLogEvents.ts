@@ -28,6 +28,9 @@ export type EventType =
   | 'link_click'
   | 'prototype_start'
   | 'prototype_stop'
+  | 'transition_fire'
+  | 'hover'
+  | 'mode_change'
   // 設計根拠（#26）
   | 'design_decision_view'
   // 質問（#31）
@@ -50,6 +53,9 @@ export type EventPayloadMap = {
   link_click: { link_name: string }
   prototype_start: Record<string, never>
   prototype_stop: Record<string, never>
+  transition_fire: { link_name: string; from_node_id: string; to_node_id: string }
+  hover: { node_id: string; node_name: string }
+  mode_change: { from: string; to: string }
   design_decision_view: { attribute_type: string }
   question_start: Record<string, never>
   question_submit: Record<string, never>

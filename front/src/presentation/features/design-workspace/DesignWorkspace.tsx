@@ -11,6 +11,7 @@ import { NavLink, useParams } from 'react-router'
 import { paths } from '../../../routes'
 import { useGuiTreeStore } from '../../shared/design/useGuiTreeStore'
 import { useLinkCreationStore } from '../../shared/design/useLinkCreationStore'
+import { useInteractionModeStore } from '../../shared/design/useInteractionModeStore'
 import { useSelectionStore } from '../../shared/selection/useSelectionStore'
 import { useCanvasSelection } from '../../shared/selection/useCanvasSelection'
 import { useRepositories } from '../../providers/useRepositories'
@@ -49,6 +50,10 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
   // ---- 選択ストア（highlights 用） ----
   const selectedNodeId = useSelectionStore(s => s.selectedNodeId)
 
+  // ---- インタラクションモードストア（#25） ----
+  const interactionMode = useInteractionModeStore(s => s.mode)
+  const setInteractionMode = useInteractionModeStore(s => s.setMode)
+
   // ---- リンク作成ストア ----
   const lcMode         = useLinkCreationStore(s => s.mode)
   const lcSourceId     = useLinkCreationStore(s => s.sourceNodeId)
@@ -81,6 +86,9 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
 
   // ---- リンク名の編集状態 ----
   const [editLinkName, setEditLinkName] = useState('')
+
+  // ---- プレビューモード: ホバー中のソースノード → ハイライトするターゲット（#25） ----
+  const [previewHoverTargetIds, setPreviewHoverTargetIds] = useState<string[]>([])
 
   // ---- ヘルパー: ツリーを再取得してストアを更新 ----
   const refreshTree = useCallback(async () => {
@@ -131,6 +139,15 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
   // ---- Canvas 選択ハンドラ ----
   const currentRoot = roots[selectedPageIdx] ?? null
   const flatMap     = currentRoot ? flattenNodes([currentRoot]) : new Map()
+
+  // 全ページのノード → ページインデックスのマップ（プレビューモードのクロスページ遷移用）
+  const allPagesFlat = useMemo(() => {
+    const map = new Map<string, number>()
+    roots.forEach((root, idx) => {
+      flattenNodes([root]).forEach((_, nodeId) => map.set(nodeId, idx))
+    })
+    return map
+  }, [roots])
   const { handleNodeClick, handleNodeDoubleClick } = useCanvasSelection(flatMap)
 
   // ---- ページ名マップ（クロスページリンクのラベル） ----
@@ -160,9 +177,82 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
     [lcMode, flatMap, lcSourceName, setLcSource],
   )
 
-  const effectiveOnNodeClick = lcMode !== 'idle'
-    ? handleNodeClickForLinkCreation
-    : handleNodeClick
+  // ---- プレビューモード: リンク検索ヘルパー ----
+  const findLinksFrom = useCallback(
+    (nodeId: string, trigger: string) =>
+      links.filter(l => {
+        if (l.source_node_id !== nodeId) return false
+        const triggerAttr = linkAttributes.find(
+          a => a.link_id === l.id && a.attribute_type === 'trigger',
+        )
+        return triggerAttr?.value === trigger
+      }),
+    [links, linkAttributes],
+  )
+
+  // ---- プレビューモード: クリックで遷移 ----
+  const handlePreviewClick = useCallback(
+    (nodeId: string | null) => {
+      if (!nodeId) return
+      const clickLinks = findLinksFrom(nodeId, 'click')
+      if (clickLinks.length === 0) return
+
+      const link = clickLinks[0]
+      const targetId = link.target_node_id
+      const targetPageIdx = allPagesFlat.get(targetId)
+
+      logEvent('transition_fire', {
+        link_name: link.name,
+        from_node_id: nodeId,
+        to_node_id: targetId,
+      })
+
+      if (targetPageIdx !== undefined && targetPageIdx !== selectedPageIdx) {
+        setSelectedPageIdx(targetPageIdx)
+      }
+    },
+    [findLinksFrom, allPagesFlat, selectedPageIdx, logEvent],
+  )
+
+  // ---- プレビューモード: ホバーで状態切り替え ----
+  const handlePreviewHover = useCallback(
+    (nodeId: string | null) => {
+      if (!nodeId) {
+        setPreviewHoverTargetIds([])
+        return
+      }
+      const hoverLinks = findLinksFrom(nodeId, 'hover')
+      const targetIds = hoverLinks.map(l => l.target_node_id)
+      setPreviewHoverTargetIds(targetIds)
+
+      if (hoverLinks.length > 0) {
+        const node = flatMap.get(nodeId)
+        logEvent('hover', { node_id: nodeId, node_name: node?.layerName ?? nodeId })
+      }
+    },
+    [findLinksFrom, flatMap, logEvent],
+  )
+
+  // ---- モード切替（選択 ↔ プレビュー）ハンドラ ----
+  const handleToggleMode = useCallback(() => {
+    const nextMode = interactionMode === 'select' ? 'preview' : 'select'
+    logEvent('mode_change', { from: interactionMode, to: nextMode })
+    if (nextMode === 'preview') {
+      logEvent('prototype_start', {})
+      cancelCreation()
+      setSelectedLinkId(null)
+    } else {
+      logEvent('prototype_stop', {})
+      setPreviewHoverTargetIds([])
+    }
+    setInteractionMode(nextMode)
+  }, [interactionMode, setInteractionMode, logEvent, cancelCreation])
+
+  const effectiveOnNodeClick = interactionMode === 'preview'
+    ? handlePreviewClick
+    : lcMode !== 'idle'
+      ? handleNodeClickForLinkCreation
+      : handleNodeClick
 
   // ---- リンク保存 ----
   const handleSaveLink = useCallback(async () => {
@@ -230,7 +320,7 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
     [gui_id, repo, refreshTree],
   )
 
-  const draggablePageIds = mode === 'researcher' && currentRoot && lcMode === 'idle'
+  const draggablePageIds = mode === 'researcher' && currentRoot && lcMode === 'idle' && interactionMode === 'select'
     ? new Set([currentRoot.id])
     : undefined
 
@@ -268,14 +358,17 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
     [gui_id, pageNodeId, repo, setTree],
   )
 
-  // ---- ハイライト（選択ノード + リンク作成の起点） ----
+  // ---- ハイライト（選択ノード + リンク作成の起点 + プレビューホバーターゲット） ----
   const highlights = useMemo(() => {
     const h = []
     if (selectedNodeId) h.push({ nodeId: selectedNodeId, style: 'selection' as const })
     if (lcSourceId) h.push({ nodeId: lcSourceId, style: 'constraint' as const })
     if (linkTargetId) h.push({ nodeId: linkTargetId, style: 'hover' as const })
+    for (const id of previewHoverTargetIds) {
+      h.push({ nodeId: id, style: 'hover' as const })
+    }
     return h
-  }, [selectedNodeId, lcSourceId, linkTargetId])
+  }, [selectedNodeId, lcSourceId, linkTargetId, previewHoverTargetIds])
 
   const hasTree  = roots.length > 0
   const rightPanel = mode === 'researcher' ? editPanel : reasonPanel
@@ -478,19 +571,32 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
 
       {/* ---- 中央キャンバス領域 ---- */}
       <div className={styles.canvasArea}>
-        {roots.length > 1 && (
-          <div className={styles.pageSwitcher}>
-            {roots.map((root, i) => (
-              <button
-                key={root.id}
-                className={`${styles.pageTab} ${i === selectedPageIdx ? styles.pageTabActive : ''}`}
-                onClick={() => setSelectedPageIdx(i)}
-              >
-                {root.layerName}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className={styles.canvasToolbar}>
+          {roots.length > 1 && (
+            <div className={styles.pageSwitcher}>
+              {roots.map((root, i) => (
+                <button
+                  key={root.id}
+                  className={`${styles.pageTab} ${i === selectedPageIdx ? styles.pageTabActive : ''}`}
+                  onClick={() => setSelectedPageIdx(i)}
+                >
+                  {root.layerName}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* モード切替ボタン（#25）: ツリーがある場合のみ表示 */}
+          {hasTree && (
+            <button
+              className={`${styles.modeToggleBtn} ${interactionMode === 'preview' ? styles.modeToggleBtnActive : ''}`}
+              onClick={handleToggleMode}
+              title={interactionMode === 'select' ? 'プレビューモードに切り替え' : '選択モードに戻る'}
+            >
+              {interactionMode === 'preview' ? '▶ プレビュー中' : '▶ プレビュー'}
+            </button>
+          )}
+        </div>
 
         {/* リンク作成モードのオーバーレイバナー */}
         {lcMode !== 'idle' && (
@@ -499,19 +605,27 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
           </div>
         )}
 
+        {/* プレビューモードのバナー */}
+        {interactionMode === 'preview' && hasTree && (
+          <div className={styles.previewModeBanner}>
+            プレビューモード — クリックでページ遷移、ホバーで状態切り替え
+          </div>
+        )}
+
         {hasTree && currentRoot ? (
           <Canvas
             roots={[currentRoot]}
             highlights={highlights}
             onNodeClick={effectiveOnNodeClick}
-            onNodeDoubleClick={lcMode === 'idle' ? handleNodeDoubleClick : undefined}
+            onNodeDoubleClick={interactionMode === 'select' && lcMode === 'idle' ? handleNodeDoubleClick : undefined}
             draggablePageIds={draggablePageIds}
             onPageDragEnd={mode === 'researcher' ? handlePageDragEnd : undefined}
-            links={mode === 'researcher' ? links : []}
+            links={mode === 'researcher' && interactionMode === 'select' ? links : []}
             linkAttributes={linkAttributes}
             pageNames={pageNames}
-            onLinkClick={mode === 'researcher' ? setSelectedLinkId : undefined}
-            selectedLinkId={selectedLinkId}
+            onLinkClick={mode === 'researcher' && interactionMode === 'select' ? setSelectedLinkId : undefined}
+            selectedLinkId={interactionMode === 'select' ? selectedLinkId : null}
+            onNodeHover={interactionMode === 'preview' ? handlePreviewHover : undefined}
           />
         ) : (
           <div className={styles.placeholder}>
