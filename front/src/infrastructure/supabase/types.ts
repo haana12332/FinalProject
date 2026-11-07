@@ -584,6 +584,10 @@ export type Database = {
         Args: { p_page_node_id: string; p_nodes: Json }
         Returns: Json
       }
+      update_page_position: {
+        Args: { p_page_node_id: string; p_x: number; p_y: number }
+        Returns: undefined
+      }
     }
     Enums: {
       attribute_sources: "figma" | "manual"

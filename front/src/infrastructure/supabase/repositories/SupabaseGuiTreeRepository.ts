@@ -47,6 +47,15 @@ export class SupabaseGuiTreeRepository implements GuiTreeRepository {
     }
   }
 
+  async updatePagePosition(pageNodeId: string, x: number, y: number): Promise<void | AppError> {
+    const { error } = await this.db.rpc('update_page_position', {
+      p_page_node_id: pageNodeId,
+      p_x: x,
+      p_y: y,
+    })
+    if (error) return toAppError(error)
+  }
+
   async getTree(guiId: string): Promise<GuiTree | AppError> {
     const { data, error } = await this.db.rpc('get_gui_tree', {
       p_gui_id: guiId,

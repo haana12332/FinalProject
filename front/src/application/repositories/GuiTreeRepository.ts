@@ -31,4 +31,10 @@ export interface GuiTreeRepository {
    * nodes が空の場合は nodes=[], attributes=[] を返す（エラーにしない）。
    */
   getTree(guiId: string): Promise<GuiTree | AppError>
+
+  /**
+   * ページノードの x・y 属性を更新する（Issue #23）。
+   * update_page_position RPC を呼び出す。
+   */
+  updatePagePosition(pageNodeId: string, x: number, y: number): Promise<void | AppError>
 }
