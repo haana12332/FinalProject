@@ -572,7 +572,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_gui_tree: {
+        Args: { p_gui_id: string }
+        Returns: Json
+      }
+      import_page: {
+        Args: { p_gui_id: string; p_nodes: Json }
+        Returns: Json
+      }
+      reimport_page: {
+        Args: { p_page_node_id: string; p_nodes: Json }
+        Returns: Json
+      }
     }
     Enums: {
       attribute_sources: "figma" | "manual"
