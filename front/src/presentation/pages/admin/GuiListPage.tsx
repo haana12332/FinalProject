@@ -93,6 +93,23 @@ export function GuiListPage() {
         {project?.name ?? '…'} — GUI 一覧
       </h1>
 
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <Link
+          to={paths.adminRequirements(project_id!)}
+          style={{
+            display: 'inline-block',
+            padding: 'var(--space-2) var(--space-4)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            fontSize: 'var(--font-size-sm)',
+            textDecoration: 'none',
+            color: 'var(--color-text)',
+          }}
+        >
+          📋 要件定義書
+        </Link>
+      </div>
+
       <form className={styles.createForm} onSubmit={handleCreate}>
         <input
           className={styles.input}
