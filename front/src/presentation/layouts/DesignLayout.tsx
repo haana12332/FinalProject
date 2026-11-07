@@ -1,15 +1,8 @@
 import { NavLink, Outlet, useParams } from 'react-router'
 import { paths } from '../../routes'
+import { useGuiTreeStore } from '../shared/design/useGuiTreeStore'
+import { LayerPanel } from '../shared/layerPanel/LayerPanel'
 import styles from './DesignLayout.module.css'
-
-type Props = {
-  /**
-   * サイドバーのレイヤーパネル領域に挿し込むコンテンツ。
-   * ページ側で <LayerPanel roots={...} /> を渡す。
-   * 省略時は空欄。
-   */
-  layerPanel?: React.ReactNode
-}
 
 /**
  * デザイン画面用レイアウト。
@@ -17,8 +10,9 @@ type Props = {
  * canvas 領域は full-width になる。
  * GUI の左右に設計根拠パネルを配置する予定（#20）。
  */
-export function DesignLayout({ layerPanel }: Props) {
+export function DesignLayout() {
   const { project_id } = useParams<{ project_id: string }>()
+  const roots = useGuiTreeStore(s => s.roots)
 
   return (
     <div className={styles.root}>
@@ -43,9 +37,9 @@ export function DesignLayout({ layerPanel }: Props) {
             </NavLink>
           )}
         </nav>
-        {/* レイヤーパネル（#16）: ページ側から roots を受け取って表示 */}
+        {/* レイヤーパネル（#16 / #18）: guiTreeStore から roots を読む */}
         <div className={styles.layerPanelArea}>
-          {layerPanel}
+          {roots.length > 0 && <LayerPanel roots={roots} />}
         </div>
       </aside>
 
