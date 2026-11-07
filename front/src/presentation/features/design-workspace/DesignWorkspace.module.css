@@ -126,6 +126,222 @@
   cursor: not-allowed;
 }
 
+/* ---- 状態遷移リンクセクション（researcher モード, Issue #24） ---- */
+
+.linkSection {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.linkSectionTitle {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.linkAddBtn {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s;
+}
+
+.linkAddBtn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.linkHint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.linkSourceChip,
+.linkTargetChip {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linkSourceChip {
+  background: #e8eaf6;
+  color: #262B8C;
+}
+
+.linkTargetChip {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.linkArrow {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.linkForm,
+.linkEditBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.linkFormRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.linkNameInput {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.linkTriggerSelect {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.linkFormActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.linkSaveBtn {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.linkSaveBtn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.linkSaveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.linkCancelBtn {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.linkCancelBtn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.linkDeleteBtn {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.linkDeleteBtn:hover {
+  background: #fff0f0;
+}
+
+.linkList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.linkItem {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linkItem:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.linkItemSelected {
+  background: var(--color-primary-surface);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* ---- リンク作成モードのオーバーレイバナー ---- */
+
+.linkModeBanner {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #262B8C;
+  color: #fff;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  z-index: 10;
+  pointer-events: none;
+}
+
 /* ---- 中央キャンバス領域 ---- */
 
 .canvasArea {

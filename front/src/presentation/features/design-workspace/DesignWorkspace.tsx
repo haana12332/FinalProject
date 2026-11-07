@@ -1,16 +1,16 @@
 /**
- * デザイン閲覧ワークスペース（Issue #20）
+ * デザイン閲覧ワークスペース（Issue #20 / #24）
  *
- * 研究者・被験者どちらのルートでも使える統合コンポーネント。
- * - 左: サイドバー（researcher: ナビ + 取り込みボタン + LayerPanel）
+ * - 左: サイドバー（researcher: ナビ + 取り込みボタン + リンク作成 + LayerPanel）
  *       （participant: LayerPanel のみ）
- * - 中: ページ切り替えタブ + Canvas
- * - 右: オプション右パネルスロット（#24/#26/#27 で中身を追加）
+ * - 中: ページ切り替えタブ + Canvas（researcher は矢印も表示）
+ * - 右: オプション右パネルスロット（#26/#27 で中身を追加）
  */
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { NavLink, useParams } from 'react-router'
 import { paths } from '../../../routes'
 import { useGuiTreeStore } from '../../shared/design/useGuiTreeStore'
+import { useLinkCreationStore } from '../../shared/design/useLinkCreationStore'
 import { useSelectionStore } from '../../shared/selection/useSelectionStore'
 import { useCanvasSelection } from '../../shared/selection/useCanvasSelection'
 import { useRepositories } from '../../providers/useRepositories'
@@ -19,46 +19,79 @@ import { parseSvg } from '../../../application/import/parseSvg'
 import { LayerPanel } from '../../shared/layerPanel/LayerPanel'
 import { Canvas } from '../../shared/canvas/Canvas'
 import { flattenNodes } from '../../shared/canvas/buildRenderTree'
+import type { Link } from '../../../domain/entities'
 import styles from './DesignWorkspace.module.css'
 
 export type DesignMode = 'researcher' | 'participant'
 
 type Props = {
   mode: DesignMode
-  /**
-   * 研究者用の編集パネル（#24/#27 で実装）。
-   * researcher モードでのみ右パネルに表示する。
-   */
   editPanel?: React.ReactNode
-  /**
-   * 被験者用の設計根拠パネル（#26 で実装）。
-   * participant モードでのみ右パネルに表示する。
-   */
   reasonPanel?: React.ReactNode
 }
+
+type TriggerValue = 'click' | 'hover'
 
 export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
   const { project_id, gui_id } = useParams<{ project_id?: string; gui_id?: string }>()
 
-  const { guiTree: repo } = useRepositories()
+  const { guiTree: repo, link: linkRepo } = useRepositories()
   const { logEvent } = useLogEvent()
 
   // ---- ツリーストア ----
-  const roots      = useGuiTreeStore(s => s.roots)
-  const pageNodeId = useGuiTreeStore(s => s.pageNodeId)
-  const setTree    = useGuiTreeStore(s => s.setTree)
-  const clearTree  = useGuiTreeStore(s => s.clearTree)
+  const roots          = useGuiTreeStore(s => s.roots)
+  const pageNodeId     = useGuiTreeStore(s => s.pageNodeId)
+  const links          = useGuiTreeStore(s => s.links)
+  const linkAttributes = useGuiTreeStore(s => s.linkAttributes)
+  const setTree        = useGuiTreeStore(s => s.setTree)
+  const clearTree      = useGuiTreeStore(s => s.clearTree)
 
   // ---- 選択ストア（highlights 用） ----
   const selectedNodeId = useSelectionStore(s => s.selectedNodeId)
 
+  // ---- リンク作成ストア ----
+  const lcMode         = useLinkCreationStore(s => s.mode)
+  const lcSourceId     = useLinkCreationStore(s => s.sourceNodeId)
+  const lcSourceName   = useLinkCreationStore(s => s.sourceNodeName)
+  const startCreation  = useLinkCreationStore(s => s.startCreation)
+  const setLcSource    = useLinkCreationStore(s => s.setSource)
+  const cancelCreation = useLinkCreationStore(s => s.cancel)
+
   // ---- ページ切り替え ----
   const [selectedPageIdx, setSelectedPageIdx] = useState(0)
 
-  // ---- インポート状態（researcher のみ） ----
+  // ---- インポート状態 ----
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [loading, setLoading]       = useState(false)
+  const [loading, setLoading]         = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+
+  // ---- リンク作成フォーム状態 ----
+  const [linkTargetId,   setLinkTargetId]   = useState<string | null>(null)
+  const [linkTargetName, setLinkTargetName] = useState('')
+  const [linkName,       setLinkName]       = useState('')
+  const [linkTrigger,    setLinkTrigger]    = useState<TriggerValue>('click')
+  const [linkSaving,     setLinkSaving]     = useState(false)
+
+  // ---- 選択中のリンク（編集・削除用） ----
+  const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null)
+  const selectedLink = useMemo(
+    () => links.find(l => l.id === selectedLinkId) ?? null,
+    [links, selectedLinkId],
+  )
+
+  // ---- リンク名の編集状態 ----
+  const [editLinkName, setEditLinkName] = useState('')
+
+  // ---- ヘルパー: ツリーを再取得してストアを更新 ----
+  const refreshTree = useCallback(async () => {
+    if (!gui_id) return
+    const tree = await repo.getTree(gui_id)
+    if ('code' in tree) {
+      setImportError(tree.message)
+    } else {
+      setTree(tree.gui_id, tree.nodes, tree.attributes, tree.links)
+    }
+  }, [gui_id, repo, setTree])
 
   // ---- GUI 切り替え時にツリーをロード（researcher） ----
   useEffect(() => {
@@ -66,16 +99,17 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
     clearTree()
     setSelectedPageIdx(0)
     setImportError(null)
+    setSelectedLinkId(null)
+    cancelCreation()
     setLoading(true)
     repo.getTree(gui_id).then(result => {
       if ('code' in result) {
         setImportError(result.message)
       } else if (result.nodes.length > 0) {
-        setTree(result.gui_id, result.nodes, result.attributes)
+        setTree(result.gui_id, result.nodes, result.attributes, result.links)
       }
       setLoading(false)
     })
-  // gui_id が変わったときだけ再実行
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gui_id])
 
@@ -96,8 +130,91 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
 
   // ---- Canvas 選択ハンドラ ----
   const currentRoot = roots[selectedPageIdx] ?? null
-  const flatMap = currentRoot ? flattenNodes([currentRoot]) : new Map()
+  const flatMap     = currentRoot ? flattenNodes([currentRoot]) : new Map()
   const { handleNodeClick, handleNodeDoubleClick } = useCanvasSelection(flatMap)
+
+  // ---- ページ名マップ（クロスページリンクのラベル） ----
+  const pageNames = useMemo(
+    () => new Map(roots.map(r => [r.id, r.layerName])),
+    [roots],
+  )
+
+  // ---- リンク作成モード中のクリックハンドラ ----
+  const handleNodeClickForLinkCreation = useCallback(
+    (nodeId: string | null) => {
+      if (!nodeId) return
+      const node = flatMap.get(nodeId)
+      const nodeName = node?.layerName ?? nodeId
+
+      if (lcMode === 'pick-source') {
+        setLcSource(nodeId, nodeName)
+        return
+      }
+      if (lcMode === 'pick-target') {
+        setLinkTargetId(nodeId)
+        setLinkTargetName(nodeName)
+        setLinkName(`${lcSourceName} → ${nodeName}`)
+        return
+      }
+    },
+    [lcMode, flatMap, lcSourceName, setLcSource],
+  )
+
+  const effectiveOnNodeClick = lcMode !== 'idle'
+    ? handleNodeClickForLinkCreation
+    : handleNodeClick
+
+  // ---- リンク保存 ----
+  const handleSaveLink = useCallback(async () => {
+    if (!lcSourceId || !linkTargetId || !linkName.trim()) return
+    setLinkSaving(true)
+    const result = await linkRepo.create({
+      source_node_id: lcSourceId,
+      target_node_id: linkTargetId,
+      name: linkName.trim(),
+      attributes: [{ attribute_type: 'trigger', value: linkTrigger }],
+    })
+    setLinkSaving(false)
+    if ('code' in result) {
+      setImportError(result.message)
+      return
+    }
+    // リセット
+    cancelCreation()
+    setLinkTargetId(null)
+    setLinkTargetName('')
+    setLinkName('')
+    setLinkTrigger('click')
+    await refreshTree()
+  }, [lcSourceId, linkTargetId, linkName, linkTrigger, linkRepo, cancelCreation, refreshTree])
+
+  // ---- リンク名編集保存 ----
+  const handleUpdateLink = useCallback(async () => {
+    if (!selectedLinkId || !editLinkName.trim()) return
+    const result = await linkRepo.update(selectedLinkId, editLinkName.trim())
+    if (result && 'code' in result) {
+      setImportError(result.message)
+      return
+    }
+    await refreshTree()
+  }, [selectedLinkId, editLinkName, linkRepo, refreshTree])
+
+  // ---- リンク削除 ----
+  const handleDeleteLink = useCallback(async () => {
+    if (!selectedLinkId) return
+    const result = await linkRepo.delete(selectedLinkId)
+    if (result && 'code' in result) {
+      setImportError(result.message)
+      return
+    }
+    setSelectedLinkId(null)
+    await refreshTree()
+  }, [selectedLinkId, linkRepo, refreshTree])
+
+  // 選択リンクが変わったら編集名をセット
+  useEffect(() => {
+    setEditLinkName(selectedLink?.name ?? '')
+  }, [selectedLink])
 
   // ---- ページ移動ハンドラ（researcher のみ、Issue #23） ----
   const handlePageDragEnd = useCallback(
@@ -108,19 +225,12 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
         setImportError(result.message)
         return
       }
-      // 位置を DB に保存後、ツリーを再取得してストアを更新する
-      const tree = await repo.getTree(gui_id)
-      if ('code' in tree) {
-        setImportError(tree.message)
-      } else {
-        setTree(tree.gui_id, tree.nodes, tree.attributes)
-      }
+      await refreshTree()
     },
-    [gui_id, repo, setTree],
+    [gui_id, repo, refreshTree],
   )
 
-  // researcher モードで表示中のページのみドラッグ可能にする
-  const draggablePageIds = mode === 'researcher' && currentRoot
+  const draggablePageIds = mode === 'researcher' && currentRoot && lcMode === 'idle'
     ? new Set([currentRoot.id])
     : undefined
 
@@ -146,7 +256,7 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
         if ('code' in result) {
           setImportError(result.message)
         } else {
-          setTree(result.gui_id, result.nodes, result.attributes)
+          setTree(result.gui_id, result.nodes, result.attributes, result.links)
           setSelectedPageIdx(0)
         }
       } catch (err) {
@@ -158,9 +268,32 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
     [gui_id, pageNodeId, repo, setTree],
   )
 
-  const hasTree = roots.length > 0
-  const highlights = selectedNodeId ? [{ nodeId: selectedNodeId, style: 'selection' as const }] : []
+  // ---- ハイライト（選択ノード + リンク作成の起点） ----
+  const highlights = useMemo(() => {
+    const h = []
+    if (selectedNodeId) h.push({ nodeId: selectedNodeId, style: 'selection' as const })
+    if (lcSourceId) h.push({ nodeId: lcSourceId, style: 'constraint' as const })
+    if (linkTargetId) h.push({ nodeId: linkTargetId, style: 'hover' as const })
+    return h
+  }, [selectedNodeId, lcSourceId, linkTargetId])
+
+  const hasTree  = roots.length > 0
   const rightPanel = mode === 'researcher' ? editPanel : reasonPanel
+
+  // リンク作成中のキャンセルは Escape キーでも
+  useEffect(() => {
+    if (lcMode === 'idle') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        cancelCreation()
+        setLinkTargetId(null)
+        setLinkTargetName('')
+        setLinkName('')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lcMode, cancelCreation])
 
   return (
     <div className={styles.root}>
@@ -181,6 +314,8 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
                 </NavLink>
               )}
             </nav>
+
+            {/* SVG 取り込み */}
             <div className={styles.importArea}>
               <input
                 ref={fileInputRef}
@@ -207,6 +342,125 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
                 </button>
               )}
             </div>
+
+            {/* リンク作成 UI（Issue #24） */}
+            {hasTree && (
+              <div className={styles.linkSection}>
+                <div className={styles.linkSectionTitle}>状態遷移リンク</div>
+
+                {lcMode === 'idle' && !linkTargetId && (
+                  <button
+                    className={styles.linkAddBtn}
+                    onClick={startCreation}
+                  >
+                    ＋ リンクを追加
+                  </button>
+                )}
+
+                {lcMode === 'pick-source' && (
+                  <div className={styles.linkHint}>
+                    <span>起点ノードをクリック</span>
+                    <button className={styles.linkCancelBtn} onClick={cancelCreation}>キャンセル</button>
+                  </div>
+                )}
+
+                {lcMode === 'pick-target' && !linkTargetId && (
+                  <div className={styles.linkHint}>
+                    <div className={styles.linkSourceChip}>{lcSourceName}</div>
+                    <span>→ 遷移先をクリック</span>
+                    <button className={styles.linkCancelBtn} onClick={cancelCreation}>キャンセル</button>
+                  </div>
+                )}
+
+                {/* 両端が揃ったら保存フォーム */}
+                {lcSourceId && linkTargetId && (
+                  <div className={styles.linkForm}>
+                    <div className={styles.linkFormRow}>
+                      <span className={styles.linkSourceChip}>{lcSourceName}</span>
+                      <span className={styles.linkArrow}>→</span>
+                      <span className={styles.linkTargetChip}>{linkTargetName}</span>
+                    </div>
+                    <input
+                      className={styles.linkNameInput}
+                      placeholder="リンク名"
+                      value={linkName}
+                      onChange={e => setLinkName(e.target.value)}
+                    />
+                    <select
+                      className={styles.linkTriggerSelect}
+                      value={linkTrigger}
+                      onChange={e => setLinkTrigger(e.target.value as TriggerValue)}
+                    >
+                      <option value="click">クリック</option>
+                      <option value="hover">ホバー</option>
+                    </select>
+                    <div className={styles.linkFormActions}>
+                      <button
+                        className={styles.linkSaveBtn}
+                        onClick={handleSaveLink}
+                        disabled={linkSaving || !linkName.trim()}
+                      >
+                        {linkSaving ? '保存中…' : '保存'}
+                      </button>
+                      <button
+                        className={styles.linkCancelBtn}
+                        onClick={() => {
+                          cancelCreation()
+                          setLinkTargetId(null)
+                          setLinkTargetName('')
+                          setLinkName('')
+                        }}
+                      >
+                        キャンセル
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 既存リンク一覧 */}
+                {links.length > 0 && (
+                  <ul className={styles.linkList}>
+                    {links.map((l: Link) => (
+                      <li
+                        key={l.id}
+                        className={`${styles.linkItem} ${l.id === selectedLinkId ? styles.linkItemSelected : ''}`}
+                        onClick={() => {
+                          setSelectedLinkId(prev => prev === l.id ? null : l.id)
+                        }}
+                      >
+                        {l.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* 選択中リンクの編集・削除 */}
+                {selectedLink && (
+                  <div className={styles.linkEditBox}>
+                    <input
+                      className={styles.linkNameInput}
+                      value={editLinkName}
+                      onChange={e => setEditLinkName(e.target.value)}
+                    />
+                    <div className={styles.linkFormActions}>
+                      <button
+                        className={styles.linkSaveBtn}
+                        onClick={handleUpdateLink}
+                        disabled={!editLinkName.trim()}
+                      >
+                        更新
+                      </button>
+                      <button
+                        className={styles.linkDeleteBtn}
+                        onClick={handleDeleteLink}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -224,7 +478,6 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
 
       {/* ---- 中央キャンバス領域 ---- */}
       <div className={styles.canvasArea}>
-        {/* ページ切り替えタブ（複数ページがある場合のみ） */}
         {roots.length > 1 && (
           <div className={styles.pageSwitcher}>
             {roots.map((root, i) => (
@@ -239,14 +492,26 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
           </div>
         )}
 
+        {/* リンク作成モードのオーバーレイバナー */}
+        {lcMode !== 'idle' && (
+          <div className={styles.linkModeBanner}>
+            {lcMode === 'pick-source' ? '起点ノードをクリックしてください' : '遷移先ノードをクリックしてください'}
+          </div>
+        )}
+
         {hasTree && currentRoot ? (
           <Canvas
             roots={[currentRoot]}
             highlights={highlights}
-            onNodeClick={handleNodeClick}
-            onNodeDoubleClick={handleNodeDoubleClick}
+            onNodeClick={effectiveOnNodeClick}
+            onNodeDoubleClick={lcMode === 'idle' ? handleNodeDoubleClick : undefined}
             draggablePageIds={draggablePageIds}
             onPageDragEnd={mode === 'researcher' ? handlePageDragEnd : undefined}
+            links={mode === 'researcher' ? links : []}
+            linkAttributes={linkAttributes}
+            pageNames={pageNames}
+            onLinkClick={mode === 'researcher' ? setSelectedLinkId : undefined}
+            selectedLinkId={selectedLinkId}
           />
         ) : (
           <div className={styles.placeholder}>
@@ -270,7 +535,7 @@ export function DesignWorkspace({ mode, editPanel, reasonPanel }: Props) {
         )}
       </div>
 
-      {/* ---- 右パネルスロット（#24/#26/#27 で中身を渡す） ---- */}
+      {/* ---- 右パネルスロット ---- */}
       {rightPanel && <aside className={styles.rightPanel}>{rightPanel}</aside>}
 
       {/* ---- エラートースト ---- */}

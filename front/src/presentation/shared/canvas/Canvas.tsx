@@ -1,9 +1,12 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { useCanvasTransform } from './useCanvasTransform'
 import { NodeSvg } from './NodeSvg'
+import { LinkArrows } from './LinkArrows'
+import { flattenNodes } from './buildRenderTree'
 import { hitTest } from './hitTest'
 import { useLogEvent } from '../../../application/logging/useLogEvent'
 import type { RenderNode, HighlightSpec } from './types'
+import type { Link, Attribute } from '../../../domain/entities'
 import styles from './Canvas.module.css'
 
 type Props = {
@@ -36,6 +39,16 @@ type Props = {
    * newX / newY はキャンバス空間の絶対座標。
    */
   onPageDragEnd?: (pageId: string, newX: number, newY: number) => void
+  /** 表示する状態遷移リンク（researcher モードで矢印表示） */
+  links?: Link[]
+  /** リンクの属性（trigger など） */
+  linkAttributes?: Attribute[]
+  /** ページ名マップ: pageNodeId → layerName（クロスページラベル用） */
+  pageNames?: Map<string, string>
+  /** リンクをクリックしたときのコールバック */
+  onLinkClick?: (linkId: string) => void
+  /** 選択中のリンク id */
+  selectedLinkId?: string | null
 }
 
 type PageDragState = {
@@ -66,6 +79,11 @@ export function Canvas({
   designHeight = 640,
   draggablePageIds,
   onPageDragEnd,
+  links = [],
+  linkAttributes = [],
+  pageNames = new Map(),
+  onLinkClick,
+  selectedLinkId,
 }: Props) {
   const {
     transform,
@@ -209,6 +227,9 @@ export function Canvas({
   const isDraggingPage = pageDragRef.current !== null
   const draggingPageId = pageDragRef.current?.pageId ?? null
 
+  // リンク矢印用フラットマップ（roots 変化時だけ再計算）
+  const flatMap = useMemo(() => flattenNodes(roots), [roots])
+
   return (
     <div className={styles.canvas}>
       <svg
@@ -238,7 +259,6 @@ export function Canvas({
           {roots.map(root => {
             const isBeingDragged = root.id === draggingPageId
             return isBeingDragged ? (
-              // ドラッグ中のページは translate でリアルタイム移動を表示する
               <g
                 key={root.id}
                 transform={`translate(${liveOffset.dx},${liveOffset.dy})`}
@@ -249,6 +269,15 @@ export function Canvas({
               <NodeSvg key={root.id} node={root} highlights={highlights} />
             )
           })}
+          {/* 状態遷移リンクの矢印（ノードの上に描画） */}
+          <LinkArrows
+            links={links}
+            linkAttributes={linkAttributes}
+            flatMap={flatMap}
+            pageNames={pageNames}
+            onLinkClick={onLinkClick}
+            selectedLinkId={selectedLinkId}
+          />
         </g>
       </svg>
     </div>
