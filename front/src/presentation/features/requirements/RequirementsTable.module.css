@@ -1,0 +1,181 @@
+.wrapper {
+  overflow-x: auto;
+}
+
+/* ---- toolbar (researcher only) ---- */
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-3);
+}
+
+.addBtn {
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.addBtn:hover {
+  opacity: 0.88;
+}
+
+/* ---- table ---- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.table th {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 2px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.table tr:hover td {
+  background: var(--color-surface-raised);
+}
+
+/* colgroup widths */
+.colOrder { width: 2.5rem; }
+.colCategory { width: 11rem; }
+.colSummary { width: 18rem; }
+.colTodo { width: 14rem; }
+.colNotodo { width: 14rem; }
+.colDod { width: 12rem; }
+.colComment { width: 12rem; }
+.colActions { width: 7rem; }
+
+/* ---- inline text display ---- */
+.listCell {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.listCell li {
+  list-style: disc;
+}
+
+/* ---- inline edit form row ---- */
+.editRow td {
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  padding: var(--space-2) var(--space-3);
+}
+
+.inputText {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+
+.inputText:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.inputArea {
+  composes: inputText;
+  resize: vertical;
+  min-height: 4rem;
+}
+
+.select {
+  composes: inputText;
+}
+
+/* ---- action buttons ---- */
+.actionGroup {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.btnEdit {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.btnEdit:hover {
+  background: var(--color-surface-raised);
+}
+
+.btnSave {
+  composes: btnEdit;
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.btnSave:hover {
+  opacity: 0.88;
+}
+
+.btnCancel {
+  composes: btnEdit;
+}
+
+.btnDelete {
+  composes: btnEdit;
+  color: var(--color-danger, #E63946);
+  border-color: var(--color-danger, #E63946);
+}
+
+.btnDelete:hover {
+  background: color-mix(in srgb, var(--color-danger, #E63946) 10%, transparent);
+}
+
+/* ---- drag handle ---- */
+.dragHandle {
+  cursor: grab;
+  user-select: none;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  padding: 0 var(--space-1);
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.rowDragging {
+  opacity: 0.4;
+}
+
+.rowDragOver td {
+  border-top: 2px solid var(--color-primary);
+}
+
+/* ---- empty state ---- */
+.empty {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}

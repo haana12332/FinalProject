@@ -20,6 +20,8 @@ export type EventType =
   | 'layer_expand'
   | 'layer_collapse'
   | 'layer_select'
+  // 要件定義書（#21）
+  | 'requirements_view'
   // ページ（#20）
   | 'page_view'
   // プロトタイプ（#25）
@@ -43,6 +45,7 @@ export type EventPayloadMap = {
   layer_expand: { layer_name: string }
   layer_collapse: { layer_name: string }
   layer_select: { layer_name: string }
+  requirements_view: { project_id: string }
   page_view: { page_name: string }
   link_click: { link_name: string }
   prototype_start: Record<string, never>

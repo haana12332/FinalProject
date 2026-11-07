@@ -6,10 +6,12 @@ export const ROUTES = {
   adminProjects: '/admin/projects',
   adminProject: '/admin/projects/:project_id',
   adminDesign: '/admin/projects/:project_id/guis/:gui_id',
+  adminRequirements: '/admin/projects/:project_id/requirements',
   adminParticipants: '/admin/projects/:project_id/participants',
   // 被験者用
   sessionStart: '/session',
   sessionDesign: '/session/:session_id',
+  sessionRequirements: '/session/:session_id/requirements',
 } as const
 
 // 遷移先 URL を組み立てるヘルパー（Link / navigate で使う）
@@ -19,9 +21,13 @@ export const paths = {
     generatePath(ROUTES.adminProject, { project_id: projectId }),
   adminDesign: (projectId: string, guiId: string) =>
     generatePath(ROUTES.adminDesign, { project_id: projectId, gui_id: guiId }),
+  adminRequirements: (projectId: string) =>
+    generatePath(ROUTES.adminRequirements, { project_id: projectId }),
   adminParticipants: (projectId: string) =>
     generatePath(ROUTES.adminParticipants, { project_id: projectId }),
   sessionStart: () => ROUTES.sessionStart,
   sessionDesign: (sessionId: string) =>
     generatePath(ROUTES.sessionDesign, { session_id: sessionId }),
+  sessionRequirements: (sessionId: string) =>
+    generatePath(ROUTES.sessionRequirements, { session_id: sessionId }),
 }

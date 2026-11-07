@@ -6,9 +6,11 @@ import {
   ProjectListPage,
   GuiListPage,
   AdminDesignPage,
+  AdminRequirementsPage,
   ParticipantsPage,
   SessionStartPage,
   SessionDesignPage,
+  SessionRequirementsPage,
 } from './presentation/pages'
 
 export const router = createBrowserRouter([
@@ -23,6 +25,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="projects" replace /> },
       { path: 'projects', element: <ProjectListPage /> },
       { path: 'projects/:project_id', element: <GuiListPage /> },
+      { path: 'projects/:project_id/requirements', element: <AdminRequirementsPage /> },
       { path: 'projects/:project_id/participants', element: <ParticipantsPage /> },
     ],
   },
@@ -39,6 +42,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <SessionStartPage /> },
       { path: ':session_id', element: <SessionDesignPage /> },
+      { path: ':session_id/requirements', element: <SessionRequirementsPage /> },
     ],
   },
 ])

@@ -8,6 +8,7 @@ import { SupabaseGuiRepository } from '../../infrastructure/supabase/repositorie
 import { SupabaseGuiTreeRepository } from '../../infrastructure/supabase/repositories/SupabaseGuiTreeRepository'
 import { SupabaseLinkRepository } from '../../infrastructure/supabase/repositories/SupabaseLinkRepository'
 import { SupabaseAttributeRepository } from '../../infrastructure/supabase/repositories/SupabaseAttributeRepository'
+import { SupabaseRequirementDocumentRepository } from '../../infrastructure/supabase/repositories/SupabaseRequirementDocumentRepository'
 
 export function RepositoriesProvider({ children }: { children: React.ReactNode }) {
   const value: Repositories = useMemo<Repositories>(() => ({
@@ -17,6 +18,7 @@ export function RepositoriesProvider({ children }: { children: React.ReactNode }
     guiTree: new SupabaseGuiTreeRepository(supabase),
     link: new SupabaseLinkRepository(supabase),
     attribute: new SupabaseAttributeRepository(supabase),
+    requirementDocument: new SupabaseRequirementDocumentRepository(supabase),
   }), [])
 
   return <RepositoriesContext.Provider value={value}>{children}</RepositoriesContext.Provider>
